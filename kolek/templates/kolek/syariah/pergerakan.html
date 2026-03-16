@@ -83,13 +83,21 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>KODE CABANG</label>
+                    <label>KANTOR CABANG (KC)</label>
                     <div class="input-wrapper">
-                        <select name="cabang">
-                            <option value="">-- Semua --</option>
-                            {% for c in cabang_list %}
-                                <option value="{{ c }}" {% if request.GET.cabang|stringformat:"s" == c|stringformat:"s" %}selected{% endif %}>{{ c }}</option>
+                        <select name="cabang" id="select-kc">
+                            <option value="">-- Semua KC --</option>
+                            {% for kc in kc_list %}
+                                <option value="{{ kc.kode }}" {% if request.GET.cabang == kc.kode %}selected{% endif %}>{{ kc.kode }} &mdash; {{ kc.nama }}</option>
                             {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>KANTOR CABANG PEMBANTU (KCP)</label>
+                    <div class="input-wrapper">
+                        <select name="kcp" id="select-kcp">
+                            <option value="">-- Pilih KC dahulu --</option>
                         </select>
                     </div>
                 </div>
@@ -156,27 +164,55 @@
         {% if page_obj.has_other_pages %}
         <div class="pagination">
             {% if page_obj.has_previous %}
-                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page=1">« Awal</a>
-                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&kcp={{ request.GET.kcp }}&tanggal={{ request.GET.tanggal }}&page=1">« Awal</a>
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&kcp={{ request.GET.kcp }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>
             {% endif %}
             {% for num in page_obj.paginator.page_range %}
                 {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
                     {% if num == page_obj.number %}<span class="current">{{ num }}</span>
-                    {% else %}<a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ num }}">{{ num }}</a>{% endif %}
+                    {% else %}<a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&kcp={{ request.GET.kcp }}&tanggal={{ request.GET.tanggal }}&page={{ num }}">{{ num }}</a>{% endif %}
                 {% endif %}
             {% endfor %}
             {% if page_obj.has_next %}
-                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.next_page_number }}">Next ›</a>
-                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.paginator.num_pages }}">Akhir »</a>
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&kcp={{ request.GET.kcp }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.next_page_number }}">Next ›</a>
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&kcp={{ request.GET.kcp }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.paginator.num_pages }}">Akhir »</a>
             {% endif %}
         </div>
         {% endif %}
     </div>
 </div>
 
+{{ cabang_mapping|json_script:"cabang-data" }}
 <script>
     function updateClock(){ var now=new Date(); document.getElementById('realtime-clock').textContent=now.toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).replace(' pukul',' |'); }
     setInterval(updateClock,1000); updateClock();
+
+    /* ── Cascading Dropdown KC → KCP ── */
+    (function() {
+        const selectKC  = document.getElementById('select-kc');
+        const selectKCP = document.getElementById('select-kcp');
+        const data      = JSON.parse(document.getElementById('cabang-data').textContent);
+        const selectedKCP = "{{ request.GET.kcp }}";
+
+        function populateKCP(kodeKC) {
+            selectKCP.innerHTML = '<option value="">-- Semua KCP --</option>';
+            const list = data[kodeKC] || [];
+            list.forEach(function(item) {
+                const opt = document.createElement('option');
+                opt.value = item.kode;
+                opt.textContent = item.kode + ' — ' + item.nama;
+                if (item.kode === selectedKCP) opt.selected = true;
+                selectKCP.appendChild(opt);
+            });
+            selectKCP.disabled = (list.length === 0);
+        }
+
+        if (selectKC.value) { populateKCP(selectKC.value); }
+
+        selectKC.addEventListener('change', function() {
+            populateKCP(this.value);
+        });
+    })();
 </script>
 </body>
 </html>

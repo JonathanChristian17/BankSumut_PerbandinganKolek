@@ -55,3 +55,44 @@ class PergerakanKolekSyariah(models.Model):
 
     def __str__(self):
         return f"[SYARIAH] {self.accnbr} | {self.tanggal_upload} | Kolek {self.kolek}"
+
+
+# ─────────────────────────────────────────────────────────────
+# MODEL: Kantor Cabang (KC) — Induk
+# ─────────────────────────────────────────────────────────────
+class KantorCabang(models.Model):
+    kode  = models.CharField(max_length=10, unique=True)
+    nama  = models.CharField(max_length=150)
+    jenis = models.CharField(max_length=70)   # CABANG / CABANG KOORDINATOR MEDAN / CABANG SYARIAH
+    is_aktif = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['kode']
+        verbose_name = 'Kantor Cabang'
+        verbose_name_plural = 'Kantor Cabang'
+
+    def __str__(self):
+        return f"{self.kode} — {self.nama}"
+
+
+# ─────────────────────────────────────────────────────────────
+# MODEL: Kantor Cabang Pembantu (KCP) — Anak dari KantorCabang
+# ─────────────────────────────────────────────────────────────
+class KantorCabangPembantu(models.Model):
+    cabang_induk = models.ForeignKey(
+        KantorCabang,
+        on_delete=models.CASCADE,
+        related_name='cabang_pembantu'
+    )
+    kode  = models.CharField(max_length=10, unique=True)
+    nama  = models.CharField(max_length=150)
+    jenis = models.CharField(max_length=70)   # CABANG PEMBANTU KONVENSIONAL / SYARIAH / KANTOR KAS
+    is_aktif = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['kode']
+        verbose_name = 'Kantor Cabang Pembantu'
+        verbose_name_plural = 'Kantor Cabang Pembantu'
+
+    def __str__(self):
+        return f"{self.kode} — {self.nama} (KCP {self.cabang_induk.kode})"

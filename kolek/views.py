@@ -6,8 +6,14 @@ from django.db.models import Sum, Q
 from django.core.paginator import Paginator
 from django.http import HttpResponse
 from datetime import datetime
-from .models import PergerakanKolekKonvensional, PergerakanKolekSyariah
+from .models import (
+    PergerakanKolekKonvensional,
+    PergerakanKolekSyariah,
+    KantorCabang,
+    KantorCabangPembantu,
+)
 import pandas as pd
+import json
 import io
 import re
 
@@ -55,13 +61,30 @@ KOLOM_MAP_SYARIAH = {
 
 KOLOM_WAJIB = ['accnbr']
 
-CABANG_LIST = [
-    '100', '101', '106', '109', '110', '111', '117', '146', '210', '211',
-    '212', '220', '230', '231', '233', '234', '240', '241', '250', '260',
-    '262', '270', '271', '280', '290', '291', '300', '302', '310', '311',
-    '320', '321', '330', '340', '351', '360', '370', '380', '610', '614',
-    '620', '630', '650', '660',
-]
+
+# ─────────────────────────────────────────────────────────────
+# HELPER: data KC & KCP untuk cascading dropdown
+# ─────────────────────────────────────────────────────────────
+def _get_cabang_context(show_syariah=False):
+    """Kembalikan list KC (induk) dan JSON mapping KC→KCP untuk template (filter Konven/Syariah)."""
+    # Filter KC
+    if show_syariah:
+        kc_query = KantorCabang.objects.filter(is_aktif=True, jenis__icontains='SYARIAH')
+    else:
+        kc_query = KantorCabang.objects.filter(is_aktif=True).exclude(jenis__icontains='SYARIAH')
+    
+    kc_list = kc_query.prefetch_related('cabang_pembantu').all()
+    cabang_mapping = {}
+    for kc in kc_list:
+        # Filter KCP sesuai jenis induknya
+        cabang_mapping[kc.kode] = [
+            {'kode': kcp.kode, 'nama': kcp.nama}
+            for kcp in kc.cabang_pembantu.filter(is_aktif=True)
+        ]
+    return {
+        'kc_list': kc_list,
+        'cabang_mapping': cabang_mapping,
+    }
 
 
 # ─────────────────────────────────────────────────────────────
@@ -95,6 +118,21 @@ def _parse_angka(v):
 
 def _clamp_int(val, min_val=-2147483648, max_val=2147483647):
     return max(min_val, min(max_val, int(val)))
+
+
+# Batas wajar hari tunggakan: 0 s/d 36.500 hari (≈100 tahun).
+# Nilai di atas ini PASTI bukan hari tunggakan — kemungkinan data finansial yang salah kolom.
+MAX_HARI_TUNGGAKAN = 36_500
+
+def _clamp_hari(val) -> int:
+    """Kembalikan hari tunggakan yang wajar. Jika di luar [0, MAX_HARI_TUNGGAKAN] → 0."""
+    try:
+        v = int(val)
+        if 0 <= v <= MAX_HARI_TUNGGAKAN:
+            return v
+        return 0
+    except (ValueError, TypeError, OverflowError):
+        return 0
 
 
 # ─────────────────────────────────────────────────────────────
@@ -144,16 +182,15 @@ def _bersihkan_df(df: pd.DataFrame, kolom_map: dict) -> pd.DataFrame:
         if col in df.columns:
             df[col] = df[col].apply(_parse_angka)
 
-    # hr_tungg_pokok, hr_tungg_margin: integer (clamp)
+    # hr_tungg_pokok, hr_tungg_margin: integer wajar (0 – 36.500 hari)
+    # Jika nilainya > MAX_HARI_TUNGGAKAN (misalnya data finansial yang nyasar kolom), set ke 0.
     for col in ['hr_tungg_pokok', 'hr_tungg_margin']:
         if col in df.columns:
-            # Gunakan _parse_angka dulu untuk handle string kosong / format aneh Excel 
-            # lalu baru jadikan integer (int)
             df[col] = (
                 df[col]
                 .apply(_parse_angka)
                 .fillna(0)
-                .apply(lambda x: _clamp_int(x))
+                .apply(_clamp_hari)
             )
 
     # kolek: integer
@@ -564,7 +601,8 @@ def kolek_konvensional_view(request):
     rating  = request.GET.get('rating')
     search  = request.GET.get('search')
     tanggal = request.GET.get('tanggal')
-    cabang  = request.GET.get('cabang')
+    cabang  = request.GET.get('cabang')   # kode KC yang dipilih
+    kcp     = request.GET.get('kcp')      # kode KCP yang dipilih
 
     if 'tanggal' not in request.GET and tanggal_list.exists():
         tgl = tanggal_list.first()
@@ -579,23 +617,35 @@ def kolek_konvensional_view(request):
             data = data.filter(cifnm__icontains=search)
     if tanggal:
         data = data.filter(tanggal_upload=tanggal)
-    if cabang:
-        data = data.filter(branchid=cabang)
+
+    # Filter bertingkat: KCP lebih spesifik dari KC
+    if kcp:
+        data = data.filter(branchid=kcp)
+    elif cabang:
+        # Ambil semua kode KCP di bawah KC ini, lalu sertakan kode KC sendiri
+        kcp_kodes = list(
+            KantorCabangPembantu.objects
+            .filter(cabang_induk__kode=cabang)
+            .values_list('kode', flat=True)
+        )
+        kcp_kodes.append(cabang)
+        data = data.filter(branchid__in=kcp_kodes)
 
     summary   = data.aggregate(total_saldo=Sum('saldo_akhir'))
     paginator = Paginator(data, 100)
     page_obj  = paginator.get_page(request.GET.get('page', 1))
 
-    return render(request, 'kolek/konvensional/pergerakan.html', {
+    ctx = {
         'page_obj'     : page_obj,
         'summary'      : summary,
         'total'        : data.count(),
         'rating_list'  : rating_list,
         'tanggal_list' : tanggal_list,
-        'cabang_list'  : CABANG_LIST,
         'tanggal_aktif': tanggal,
         'bank'         : 'konvensional',
-    })
+    }
+    ctx.update(_get_cabang_context(show_syariah=False))
+    return render(request, 'kolek/konvensional/pergerakan.html', ctx)
 
 
 @login_required
@@ -645,7 +695,8 @@ def kolek_syariah_view(request):
     rating  = request.GET.get('rating')
     search  = request.GET.get('search')
     tanggal = request.GET.get('tanggal')
-    cabang  = request.GET.get('cabang')
+    cabang  = request.GET.get('cabang')   # kode KC yang dipilih
+    kcp     = request.GET.get('kcp')      # kode KCP yang dipilih
 
     if 'tanggal' not in request.GET and tanggal_list.exists():
         tgl = tanggal_list.first()
@@ -660,23 +711,34 @@ def kolek_syariah_view(request):
             data = data.filter(cifnm__icontains=search)
     if tanggal:
         data = data.filter(tanggal_upload=tanggal)
-    if cabang:
-        data = data.filter(branchid=cabang)
+
+    # Filter bertingkat: KCP lebih spesifik dari KC
+    if kcp:
+        data = data.filter(branchid=kcp)
+    elif cabang:
+        kcp_kodes = list(
+            KantorCabangPembantu.objects
+            .filter(cabang_induk__kode=cabang)
+            .values_list('kode', flat=True)
+        )
+        kcp_kodes.append(cabang)
+        data = data.filter(branchid__in=kcp_kodes)
 
     summary   = data.aggregate(total_saldo=Sum('saldo_akhir'))
     paginator = Paginator(data, 100)
     page_obj  = paginator.get_page(request.GET.get('page', 1))
 
-    return render(request, 'kolek/syariah/pergerakan.html', {
+    ctx = {
         'page_obj'     : page_obj,
         'summary'      : summary,
         'total'        : data.count(),
         'rating_list'  : rating_list,
         'tanggal_list' : tanggal_list,
-        'cabang_list'  : CABANG_LIST,
         'tanggal_aktif': tanggal,
         'bank'         : 'syariah',
-    })
+    }
+    ctx.update(_get_cabang_context(show_syariah=True))
+    return render(request, 'kolek/syariah/pergerakan.html', ctx)
 
 
 @login_required
