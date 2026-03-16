@@ -1,0 +1,104 @@
+{% load static %}
+<!-- ═══════════════════════════════════════════════════════
+     NAVBAR KOMPONEN — include di semua halaman
+     Variabel konteks: bank = 'konvensional' | 'syariah'
+     ═══════════════════════════════════════════════════════ -->
+<nav class="top-navbar">
+    <div class="nav-left">
+        <div class="nav-icon">
+            <img src="{% static 'kolek/img/banksumutlogo.png' %}" alt="Logo Bank Sumut">
+        </div>
+        <h1 class="nav-title">Kolektibilitas</h1>
+    </div>
+
+    <div class="nav-center">
+        <!-- Dropdown Bank Konvensional -->
+        <div class="nav-dropdown {% if bank == 'konvensional' %}active{% endif %}">
+            <button class="nav-dropbtn {% if bank == 'konvensional' %}btn-active{% endif %}">
+                Konvensional
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </button>
+            <div class="nav-dropdown-content">
+                <a href="{% url 'kolek:konvensional_pergerakan' %}"
+                   class="{% if request.resolver_match.url_name == 'konvensional_pergerakan' %}nav-item-active{% endif %}">
+                    📊 Data Pergerakan
+                </a>
+                <a href="{% url 'kolek:konvensional_upload' %}"
+                   class="{% if request.resolver_match.url_name == 'konvensional_upload' %}nav-item-active{% endif %}">
+                    📤 Upload Data
+                </a>
+                <a href="{% url 'kolek:konvensional_bandingkan' %}"
+                   class="{% if request.resolver_match.url_name == 'konvensional_bandingkan' %}nav-item-active{% endif %}">
+                    🔄 Bandingkan Periode
+                </a>
+            </div>
+        </div>
+
+        <!-- Dropdown Bank Syariah -->
+        <div class="nav-dropdown {% if bank == 'syariah' %}active{% endif %}">
+            <button class="nav-dropbtn {% if bank == 'syariah' %}btn-active{% endif %}">
+                Syariah
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                     fill="none" stroke="currentColor" stroke-width="2.5"
+                     stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </button>
+            <div class="nav-dropdown-content">
+                <a href="{% url 'kolek:syariah_pergerakan' %}"
+                   class="{% if request.resolver_match.url_name == 'syariah_pergerakan' %}nav-item-active{% endif %}">
+                    📊 Data Pergerakan
+                </a>
+                <a href="{% url 'kolek:syariah_upload' %}"
+                   class="{% if request.resolver_match.url_name == 'syariah_upload' %}nav-item-active{% endif %}">
+                    📤 Upload Data
+                </a>
+                <a href="{% url 'kolek:syariah_bandingkan' %}"
+                   class="{% if request.resolver_match.url_name == 'syariah_bandingkan' %}nav-item-active{% endif %}">
+                    🔄 Bandingkan Periode
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="nav-right">
+        <div class="realtime-clock" id="realtime-clock">--:--:--</div>
+        <div class="user-avatar">JO</div>
+    </div>
+</nav>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Toggle dropdown saat tombol diklik
+        const dropbtns = document.querySelectorAll('.nav-dropbtn');
+        dropbtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation(); // Mencegah klik bocor ke window
+                
+                // Tutup dropdown lain yang terbuka
+                const parentDropdown = this.closest('.nav-dropdown');
+                document.querySelectorAll('.nav-dropdown.show').forEach(dropdown => {
+                    if (dropdown !== parentDropdown) {
+                        dropdown.classList.remove('show');
+                    }
+                });
+
+                // Toggle dropdown yang sedang diklik
+                parentDropdown.classList.toggle('show');
+            });
+        });
+
+        // Tutup dropdown saat klik di luar area navbar 
+        window.addEventListener('click', function(event) {
+            if (!event.target.closest('.nav-dropdown')) {
+                document.querySelectorAll('.nav-dropdown.show').forEach(dropdown => {
+                    dropdown.classList.remove('show');
+                });
+            }
+        });
+    });
+</script>

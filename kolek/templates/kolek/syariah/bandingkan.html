@@ -1,0 +1,484 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perbandingan Kolek — Bank Syariah</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'kolek/css/navbar.css' %}">
+    <link rel="stylesheet" href="{% static 'kolek/css/bandingkan_kolek.css' %}">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #065f46;
+        }
+
+        .btn-compare {
+            background: #059669;
+        }
+
+        .btn-compare:hover {
+            background: #047857;
+        }
+
+        .bank-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            background: #065f46;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+
+        .pagination .current {
+            background: #065f46;
+            border-color: #065f46;
+        }
+
+        /* Hover effects for table rows based on category */
+        tbody tr.tetap:hover { background-color: #f1f5f9; } /* Slate-100 */
+        tbody tr.membaik:hover { background-color: #dcfce7; } /* Green-100 */
+        tbody tr.memburuk:hover { background-color: #fee2e2; } /* Red-100 */
+        tbody tr.berbeda:hover { background-color: #fef9c3; } /* Yellow-100 */
+        tbody tr.lunas:hover { background-color: #dbeafe; } /* Blue-100 */
+        tbody tr.baru:hover { background-color: #f3e8ff; } /* Purple-100 */
+    </style>
+</head>
+
+<body>
+    {% include 'kolek/navbar.html' %}
+
+    <div class="container">
+        {% if messages %}
+        <div style="margin-bottom:24px;">
+            {% for message in messages %}
+            <div class="alert-message">⚠️ {{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <header class="page-header">
+            <div class="header-title">
+                <h2>Perbandingan <span
+                        style="background:linear-gradient(135deg,#059669,#047857);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Kolektibilitas</span>
+                    <span class="bank-badge">Syariah</span>
+                </h2>
+                <p class="subtitle">Bandingkan dua periode data pergerakan rating debitur Bank Syariah</p>
+            </div>
+            <div class="header-actions">
+                <a href="{% url 'kolek:syariah_pergerakan' %}" class="btn-action btn-outline">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Data Pergerakan
+                </a>
+                <a href="{% url 'kolek:syariah_upload' %}" class="btn-action btn-primary"
+                    style="background:#059669;border-color:#059669;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    Upload Data Baru
+                </a>
+            </div>
+        </header>
+
+        <div class="filter-compare-container">
+            <div class="filter-compare-header">
+                <div class="icon-box"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M4 14v6h6" />
+                        <path d="M20 10V4h-6" />
+                        <path d="M14 20h6v-6" />
+                        <path d="M10 4H4v6" />
+                    </svg></div>
+                <div class="header-text">
+                    <h3>Pilih Dua Tanggal untuk Dibandingkan</h3>
+                    <p>Pilih periode awal dan akhir, lalu tekan Bandingkan</p>
+                </div>
+            </div>
+            <form method="GET" id="form-utama" class="compare-form">
+                <div class="compare-row">
+                    <div class="form-group min-w-180">
+                        <label>TANGGAL 1 (AWAL)</label>
+                        <div class="input-wrapper">
+                            <select name="tanggal1" required>
+                                <option value="">-- Pilih --</option>
+                                {% for tgl in tanggal_list %}
+                                <option value="{{ tgl|date:'Y-m-d' }}" {% if tgl|date:"Y-m-d" == tanggal1 %}selected{% endif %}>{{ tgl|date:"d M Y" }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="vs-divider">
+                        <div class="vs-circle">vs</div>
+                    </div>
+                    <div class="form-group min-w-180">
+                        <label>TANGGAL 2 (AKHIR)</label>
+                        <div class="input-wrapper">
+                            <select name="tanggal2" required>
+                                <option value="">-- Pilih --</option>
+                                {% for tgl in tanggal_list %}
+                                <option value="{{ tgl|date:'Y-m-d' }}" {% if tgl|date:"Y-m-d" == tanggal2 %}selected{% endif %}>{{ tgl|date:"d M Y" }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    {% if hasil_banding is not None %}
+                    <div class="form-group min-w-180">
+                        <label>FILTER KATEGORI</label>
+                        <div class="input-wrapper">
+                            <select name="kategori">
+                                <option value="">-- Semua --</option>
+                                <option value="tetap" {% if filter_kat == "tetap" %}selected{% endif %}>Tetap</option>
+                                <option value="membaik" {% if filter_kat == "membaik" %}selected{% endif %}>Membaik
+                                </option>
+                                <option value="memburuk" {% if filter_kat == "memburuk" %}selected{% endif %}>Memburuk
+                                </option>
+                                <option value="lunas" {% if filter_kat == "lunas" %}selected{% endif %}>Lunas / Tutup
+                                </option>
+                                <option value="baru" {% if filter_kat == "baru" %}selected{% endif %}>Fasilitas Baru
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if perubahan_list %}
+                    <div class="form-group min-w-180">
+                        <label>PERUBAHAN SANDI</label>
+                        <div class="input-wrapper">
+                            <select name="filter_rating">
+                                <option value="">-- Semua Perubahan --</option>
+                                {% for p in perubahan_list %}
+                                <option value="{{ p }}" {% if filter_rating == p %}selected{% endif %}>{{ p }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    {% endif %}
+                    <div class="compare-actions">
+                        <button type="submit" class="btn-compare">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M4 14v6h6" />
+                                <path d="M20 10V4h-6" />
+                                <path d="M14 20h6v-6" />
+                                <path d="M10 4H4v6" />
+                            </svg>
+                            Bandingkan
+                        </button>
+                        <a href="{% url 'kolek:syariah_bandingkan' %}" class="btn-reset-text">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        {% if hasil_banding is not None %}
+        <div class="ringkasan">
+            <div class="card total">
+                <div class="angka">{{ ringkasan.total|intcomma }}</div>
+                <div class="label-kecil">Total Rekening</div>
+            </div>
+            <div class="card sama"
+                onclick="window.location='?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori=tetap'">
+                <div class="angka">{{ ringkasan.tetap|intcomma }}</div>
+                <div class="label-kecil">Tetap ⚖️</div>
+            </div>
+            <div class="card baru"
+                onclick="window.location='?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori=membaik'">
+                <div class="angka">{{ ringkasan.membaik|intcomma }}</div>
+                <div class="label-kecil">Membaik 📈</div>
+            </div>
+            <div class="card berbeda"
+                onclick="window.location='?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori=memburuk'">
+                <div class="angka">{{ ringkasan.memburuk|intcomma }}</div>
+                <div class="label-kecil">Memburuk 📉</div>
+            </div>
+            <div class="card lunas"
+                onclick="window.location='?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori=lunas'">
+                <div class="angka">{{ ringkasan.lunas|intcomma }}</div>
+                <div class="label-kecil">Lunas / Tutup 🟢</div>
+            </div>
+            <div class="card" style="background:#f8fafc; border-left:4px solid #3b82f6; cursor:pointer;"
+                onclick="window.location='?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori=baru'">
+                <div class="angka" style="color:#1e293b;">{{ ringkasan.baru|intcomma }}</div>
+                <div class="label-kecil" style="color:#64748b;">Fasilitas Baru 🔵</div>
+            </div>
+        </div>
+
+        {% if filter_kat or filter_rating %}
+        <div style="margin-bottom: 16px;">
+            <span class="info-filter" style="display:inline-block; padding:8px 16px; background:#fff; border-left:4px solid #065f46; border-radius:4px; font-size:14px; color:#475569; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+                Menampilkan hasil yang difilter:
+                {% if filter_kat %}kategori = <strong style="color:#0f172a;">{{ filter_kat|title }}</strong>{% endif %}
+                {% if filter_rating %}{% if filter_kat %} | {% endif %}perubahan sandi = <strong style="color:#0f172a;">{{ filter_rating }}</strong>{% endif %}
+                — <strong style="color:#065f46;">{{ page_obj.paginator.count|intcomma }}</strong> rekening ditemukan dari total <strong style="color:#065f46;">{{ ringkasan.total|intcomma }}</strong>
+            </span>
+        </div>
+        {% endif %}
+
+        <!-- ECHARTS CONTAINERS -->
+        {% if pie_data %}
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0; font-size:18px; font-weight:600; color:#1e293b;">Visualisasi Data Terfilter</h3>
+            <select id="chart-filter" class="btn-outline"
+                style="padding:6px 12px; border-radius:6px; background:#fff; outline:none; font-family:Inter; font-size:14px; cursor:pointer;">
+                <option value="semua">Tampilkan Semua Status</option>
+                <option value="tanpatetap">Sembunyikan Status 'Tetap'</option>
+                <option value="hanyaberubah">Hanya Membaik & Memburuk</option>
+            </select>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:20px; margin-bottom:24px;">
+            <!-- Pie Chart -->
+            <div
+                style="flex:1; min-width:300px; background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border:1px solid #e2e8f0;">
+                <h3
+                    style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+                    Proporsi Status</h3>
+                <div id="chart-pie" style="width:100%; height:300px;"></div>
+            </div>
+
+            <!-- Bar Chart -->
+            <div
+                style="flex:1; min-width:300px; background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border:1px solid #e2e8f0;">
+                <h3
+                    style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+                    Exposure Finansial (Saldo Akhir vs Nilai Wajar)</h3>
+                <div id="chart-bar" style="width:100%; height:300px;"></div>
+            </div>
+        </div>
+
+        {% endif %}
+        <!-- END ECHARTS -->
+
+        {% if page_obj and page_obj.object_list %}
+        <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+            <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&export=excel"
+                class="btn-action btn-outline" style="background:#10B981;color:white;border:none;"
+                id="btn-export-excel">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Export CSV
+            </a>
+        </div>
+        <div class="table-container">
+            <div class="tbl-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>No. Rekening</th>
+                            <th>Nama CIF</th>
+                            <th>Kelompok Sandi T1</th>
+                            <th>Kelompok Sandi T2</th>
+                            <th>Kolek T1</th>
+                            <th>Kolek T2</th>
+                            <th>Nilai Wajar T2</th>
+                            <th>Saldo Akhir T2</th>
+                            <th>Perubahan Sandi</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in page_obj %}
+                        <tr class="{{ r.kategori }}">
+                            <td>{{ forloop.counter0|add:page_obj.start_index }}</td>
+                            <td>{{ r.accnbr }}</td>
+                            <td>{{ r.cifnm }}</td>
+                            <td>{{ r.rating_t1_disp }}</td>
+                            <td>{{ r.rating_t2_disp }}</td>
+                            <td>{{ r.kolek_t1_disp }}</td>
+                            <td>{{ r.kolek_t2_disp }}</td>
+                            <td>{{ r.nilai_wajar_t2_disp|intcomma }}</td>
+                            <td>{{ r.saldo_t2_disp|intcomma }}</td>
+                            <td>
+                                {% if r.kategori == "membaik" or r.kategori == "memburuk" or r.kategori == "berbeda" %}
+                                <span class="arrow">{{ r.perubahan_label }}</span>
+                                {% else %}
+                                {{ r.perubahan_label }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if r.kategori == "tetap" %}<span class="badge badge-sama"
+                                    style="background:#e2e8f0; color:#475569;">Tetap</span>
+                                {% elif r.kategori == "membaik" %}<span class="badge badge-sama"
+                                    style="background:#dcfce7; color:#166534;">Membaik</span>
+                                {% elif r.kategori == "memburuk" %}<span class="badge badge-berbeda"
+                                    style="background:#fee2e2; color:#991b1b;">Memburuk</span>
+                                {% elif r.kategori == "berbeda" %}<span class="badge badge-berbeda">Berubah</span>
+                                {% elif r.kategori == "lunas" %}<span class="badge badge-lunas">Lunas/Tutup</span>
+                                {% else %}<span class="badge badge-baru">Baru</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                {% if page_obj.has_previous %}
+                <a
+                    href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page=1">«
+                    Awal</a>
+                <a
+                    href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ page_obj.previous_page_number }}">‹
+                    Prev</a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                    {% if num == page_obj.number %}
+                        <span class="current">{{ num }}</span>
+                    {% else %}
+                        <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ num }}">{{ num }}</a>
+                    {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ page_obj.next_page_number }}">Next ›</a>
+                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ page_obj.paginator.num_pages }}">Akhir »</a>
+                    {% endif %}
+                    <div style="flex-basis:100%;text-align:center;color:#64748b;font-size:13px;margin-top:12px;">
+                        Menampilkan baris {{ page_obj.start_index }}–{{ page_obj.end_index }} dari total {{ page_obj.paginator.count|intcomma }} data
+                    </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="empty">Tidak ada data untuk perbandingan ini.</div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <div id="page-loader" class="loader-overlay" style="display:none;">
+        <div class="loader">
+            <div class="loader-text">Memproses Data...</div>
+            <div class="loader-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var elT1 = document.querySelector('select[name="tanggal1"]'), elT2 = document.querySelector('select[name="tanggal2"]');
+            if (elT1 && elT2) { elT1.addEventListener('change', function () { var d1 = new Date(elT1.value), mx = new Date(d1); mx.setDate(mx.getDate() + 31); Array.from(elT2.options).forEach(function (o) { if (!o.value) return; var d2 = new Date(o.value); o.disabled = (d2 <= d1 || d2 > mx); o.style.color = o.disabled ? '#ccc' : ''; }); if (elT2.options[elT2.selectedIndex] && elT2.options[elT2.selectedIndex].disabled) elT2.value = ''; }); if (elT1.value) elT1.dispatchEvent(new Event('change')); }
+            var loader = document.getElementById('page-loader'), lt = document.querySelector('.loader-text');
+            function show(t) { if (loader) { if (lt) lt.textContent = t || 'Memproses Data...'; loader.style.display = 'flex'; } }
+            function hide() { if (loader) { loader.style.display = 'none'; if (lt) lt.textContent = 'Memproses Data...'; } }
+            var f = document.getElementById('form-utama'); if (f) f.addEventListener('submit', function () { show(); });
+            var rb = document.querySelector('.btn-reset-text'); if (rb) rb.addEventListener('click', function () { show(); });
+            document.querySelectorAll('.card[onclick]').forEach(c => c.addEventListener('click', function () { show(); }));
+            document.querySelectorAll('.pagination a').forEach(a => a.addEventListener('click', function () { show(); }));
+            window.addEventListener('pageshow', function () { hide(); });
+            var be = document.getElementById('btn-export-excel');
+            if (be) { be.addEventListener('click', function (e) { e.preventDefault(); show('Menyiapkan File...'); var token = Math.random().toString(36).substring(2, 15); var url = new URL(this.href, window.location.origin); url.searchParams.set('export_token', token); window.location.href = url.toString(); var cn = 'export_done_' + token; var ci = setInterval(function () { if (document.cookie.indexOf(cn + '=true') !== -1) { hide(); clearInterval(ci); document.cookie = cn + '=; Max-Age=0; path=/'; } }, 500); }); }
+        });
+
+        {% if pie_data %}
+        document.addEventListener('DOMContentLoaded', function () {
+            var pie_data_str = '{{ pie_data|escapejs }}';
+            var pie_data = JSON.parse(pie_data_str);
+            var bar_cat_str = '{{ bar_categories|escapejs }}';
+            var bar_cat = JSON.parse(bar_cat_str);
+            var bar_saldo_str = '{{ bar_saldo|escapejs }}';
+            var bar_saldo = JSON.parse(bar_saldo_str);
+            var bar_nilai_str = '{{ bar_nilai|escapejs }}';
+            var bar_nilai = JSON.parse(bar_nilai_str);
+            // 1. Pie Chart
+            var chartPie = echarts.init(document.getElementById('chart-pie'));
+            chartPie.setOption({
+                tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
+                legend: { bottom: '0%', left: 'center' },
+                series: [{
+                    type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
+                    itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+                    label: { 
+                        show: true, 
+                        position: 'outside',
+                        formatter: '{b}\n{d}%',
+                        fontWeight: 'bold'
+                    },
+                    emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
+                    labelLine: { show: true, length: 15, length2: 10 },
+                    data: pie_data
+                }]
+            });
+
+            // 2. Bar Chart
+            var chartBar = echarts.init(document.getElementById('chart-bar'));
+            chartBar.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: ['Saldo Akhir', 'Nilai Wajar'], bottom: '0%' },
+                grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+                xAxis: { type: 'category', data: bar_cat },
+                yAxis: { type: 'value', axisLabel: { formatter: '{value}' } },
+                series: [
+                    { name: 'Saldo Akhir', type: 'bar', data: bar_saldo, itemStyle: { color: '#059669', borderRadius: [4, 4, 0, 0] } },
+                    { name: 'Nilai Wajar', type: 'bar', data: bar_nilai, itemStyle: { color: '#fbbf24', borderRadius: [4, 4, 0, 0] } }
+                ]
+            });
+
+            // Chart Filtering Logic
+            var chartFilter = document.getElementById('chart-filter');
+            if (chartFilter) {
+                chartFilter.addEventListener('change', function (e) {
+                    var val = e.target.value;
+                    var selectedPie = {};
+                    if (val === 'tanpatetap') {
+                        selectedPie = { 'Tetap': false, 'Membaik': true, 'Memburuk': true, 'Lunas / Tutup': true, 'Fasilitas Baru': true };
+                    } else if (val === 'hanyaberubah') {
+                        selectedPie = { 'Tetap': false, 'Membaik': true, 'Memburuk': true, 'Lunas / Tutup': false, 'Fasilitas Baru': false };
+                    } else {
+                        selectedPie = { 'Tetap': true, 'Membaik': true, 'Memburuk': true, 'Lunas / Tutup': true, 'Fasilitas Baru': true };
+                    }
+                    chartPie.setOption({ legend: { selected: selectedPie } });
+
+                    var new_cat = [];
+                    var new_saldo = [];
+                    var new_nilai = [];
+                    for (var i = 0; i < bar_cat.length; i++) {
+                        var c = bar_cat[i];
+                        var show = true;
+                        if (val === 'tanpatetap' && c === 'Tetap') show = false;
+                        if (val === 'hanyaberubah' && (c !== 'Membaik' && c !== 'Memburuk')) show = false;
+
+                        if (show) {
+                            new_cat.push(c);
+                            new_saldo.push(bar_saldo[i]);
+                            new_nilai.push(bar_nilai[i]);
+                        }
+                    }
+                    chartBar.setOption({
+                        xAxis: { data: new_cat },
+                        series: [
+                            { data: new_saldo },
+                            { data: new_nilai }
+                        ]
+                    });
+                });
+            }
+
+            window.addEventListener('resize', function () {
+                chartPie.resize();
+                chartBar.resize();
+            });
+        });
+        {% endif %}
+
+        function updateClock() { var now = new Date(); document.getElementById('realtime-clock').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(' pukul', ' |'); }
+        setInterval(updateClock, 1000); updateClock();
+    </script>
+</body>
+
+</html>

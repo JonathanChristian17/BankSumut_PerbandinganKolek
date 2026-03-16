@@ -1,0 +1,107 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Data — Bank Syariah</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'kolek/css/navbar.css' %}">
+    <link rel="stylesheet" href="{% static 'kolek/css/upload_kolek.css' %}">
+    <style>
+        :root { --accent-orange: #059669; --hover-orange: #047857; --primary-blue: #065f46; --light-blue: #d1fae5; }
+        .bank-badge { display:inline-block; padding:3px 10px; border-radius:20px; background:#065f46; color:#fff; font-size:12px; font-weight:600; margin-left:10px; vertical-align:middle; }
+    </style>
+</head>
+<body>
+{% include 'kolek/navbar.html' %}
+
+<div class="container">
+    <header class="page-header">
+        <div class="header-title">
+            <h2>Upload <span class="text-accent" style="background:linear-gradient(135deg,#059669,#047857);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Kolektibilitas</span>
+                <span class="bank-badge">Syariah</span>
+            </h2>
+            <p class="subtitle">Unggah file Excel data kolektibilitas Bank Syariah</p>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'kolek:syariah_pergerakan' %}" class="btn-action btn-outline">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+                Data Pergerakan
+            </a>
+            <a href="{% url 'kolek:syariah_bandingkan' %}" class="btn-action btn-primary" style="background:#059669;border-color:#059669;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v6h6"/><path d="M20 10V4h-6"/><path d="M14 20h6v-6"/><path d="M10 4H4v6"/></svg>
+                Bandingkan Dua Tanggal
+            </a>
+        </div>
+    </header>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-error">⚠️ {{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card">
+        <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="tanggal_upload">Pilih Tanggal Upload</label>
+                <input type="date" id="tanggal_upload" name="tanggal_upload" required>
+            </div>
+            <div class="form-group">
+                <label for="file_excel">Pilih File Data Excel (Syariah)</label>
+                <input type="file" id="file_excel" name="file_excel" accept=".xlsx,.xls" required>
+            </div>
+            <button type="submit" style="background:#059669;">Upload &amp; Proses Data</button>
+        </form>
+    </div>
+
+    {% if hasil.selesai %}
+    <div class="hasil">
+        <h3>Hasil Pemrosesan</h3>
+        <div>
+            <span class="stat-badge stat-success">✅ Berhasil: {{ hasil.berhasil }} baris</span>
+            {% if hasil.gagal > 0 %}
+            <span class="stat-badge stat-error">❌ Gagal: {{ hasil.gagal }} baris</span>
+            {% endif %}
+        </div>
+        {% if hasil.errors %}
+        <div class="error-list">
+            <p style="font-weight:600;color:var(--error-color);margin-bottom:8px;">Detail Error:</p>
+            {% for err in hasil.errors %}
+            <p style="color:var(--error-color);font-size:13px;margin-bottom:4px;">• {{ err }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="panduan-box">
+        <h4>📋 Panduan Header Excel — Bank Syariah</h4>
+        <p class="panduan-desc">Pastikan baris pertama file Excel Anda menggunakan nama kolom berikut (huruf besar/kecil tidak masalah):</p>
+        <table>
+            <thead><tr><th style="background:#065f46;">Nama Header Excel</th><th style="background:#065f46;">Keterangan</th></tr></thead>
+            <tbody>
+                <tr><td><span class="badge-header">KELOMPOK_SANDI</span></td><td>Kelompok Sandi (contoh: 1, 2A, 2B)</td></tr>
+                <tr><td><span class="badge-header">ACCNBR</span></td><td>Nomor Rekening (ACCNBR) <strong>(Wajib ada)</strong></td></tr>
+                <tr><td><span class="badge-header">CIFID</span></td><td>CIF ID Nasabah</td></tr>
+                <tr><td><span class="badge-header">CIFNM</span></td><td>Nama CIF / Nama Debitur</td></tr>
+                <tr><td><span class="badge-header">BRANCHID</span></td><td>Kode Cabang</td></tr>
+                <tr><td><span class="badge-header">PLAFOND</span></td><td>Plafond Pembiayaan</td></tr>
+                <tr><td><span class="badge-header">SALDO_AKHIR</span></td><td>Saldo Akhir / Baki Debet</td></tr>
+                <tr><td><span class="badge-header">NILAI_WAJAR</span></td><td>Nilai Wajar</td></tr>
+                <tr><td><span class="badge-header">HR_TUNGG_POKOK</span></td><td>Hari Tunggakan Pokok</td></tr>
+                <tr><td><span class="badge-header">HR_TUNGG_MARGIN</span></td><td>Hari Tunggakan Margin (bukan bunga)</td></tr>
+                <tr><td><span class="badge-header">KOLEK</span></td><td>Kolektibilitas (angka 1–5)</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function updateClock(){ var now=new Date(); document.getElementById('realtime-clock').textContent=now.toLocaleDateString('id-ID',{weekday:'long',year:'numeric',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).replace(' pukul',' |'); }
+    setInterval(updateClock,1000); updateClock();
+</script>
+</body>
+</html>

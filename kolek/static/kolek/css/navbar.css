@@ -1,0 +1,201 @@
+/* ═══════════════════════════════════════════════════════
+   CSS GLOBAL — navbar.css
+   Style untuk Top Navbar dengan Dropdown Bank
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Navbar ── */
+.top-navbar {
+    background-color: #1a2236;
+    height: 66px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 36px;
+    color: white;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.nav-icon img {
+    height: 46px;
+    width: auto;
+    object-fit: contain;
+}
+
+.nav-title {
+    font-size: 19px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+/* ── Nav Center (Dropdown area) ── */
+.nav-center {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.nav-dropdown {
+    position: relative;
+}
+
+.nav-dropbtn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: #cbd5e1;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    font-family: 'Inter', sans-serif;
+}
+
+.nav-dropbtn:hover,
+.nav-dropdown:hover .nav-dropbtn {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.22);
+    color: #fff;
+}
+
+.nav-dropbtn.btn-active {
+    background: rgba(226, 108, 54, 0.22);
+    border-color: rgba(226, 108, 54, 0.55);
+    color: #f59e61;
+}
+
+.nav-dropbtn.btn-active:hover,
+.nav-dropdown.active:hover .nav-dropbtn {
+    background: rgba(226, 108, 54, 0.30);
+}
+
+.nav-dropbtn svg {
+    transition: transform 0.2s ease;
+}
+
+/* Class 'show' akan ditambahkan via JavaScript pada click */
+.nav-dropdown.show .nav-dropbtn {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.22);
+    color: #fff;
+}
+
+.nav-dropdown.show .nav-dropbtn svg {
+    transform: rotate(180deg);
+}
+
+/* ── Dropdown Content ── */
+.nav-dropdown-content {
+    display: none;
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 0;
+    background: #ffffff; /* Ubah background jadi putih agar teks lebih terbaca */
+    min-width: 220px;    /* Sedikit melebarkan dropdown */
+    border-radius: 10px;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.25);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    animation: dropdownFadeIn 0.15s ease;
+    z-index: 200;
+}
+
+@keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Tampilkan dropdown saat class 'show' aktif */
+.nav-dropdown.show .nav-dropdown-content {
+    display: block;
+}
+
+.nav-dropdown-content a {
+    display: block;
+    padding: 13px 20px;
+    color: #334155;      /* Warna font default hitam keabu-abuan terang (Slate-700) */
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    border-bottom: 1px solid #f1f5f9;  /* pemisah subtle */
+}
+
+.nav-dropdown-content a:last-child {
+    border-bottom: none;
+}
+
+/* Base effect hover */
+.nav-dropdown-content a:hover {
+    background-color: #f8fafc;
+    padding-left: 24px;
+}
+
+/* Specific Style: Konvensional (Active & Hover) */
+.nav-dropdown.active .nav-dropdown-content a.nav-item-active,
+.nav-dropdown:first-child .nav-dropdown-content a:hover {
+    color: #1e40af; /* Biru Navy untuk Konvensional */
+    background: #eff6ff;
+    font-weight: 600;
+}
+
+/* Specific Style: Syariah (Active & Hover) */
+.nav-dropdown:last-child .nav-dropdown-content a:hover,
+.nav-dropdown.active:last-child .nav-dropdown-content a.nav-item-active {
+    color: #047857; /* Hijau Emerald untuk Syariah */
+    background: #ecfdf5;
+    font-weight: 600;
+}
+
+/* Active fallback fallback if no specific styling matches */
+.nav-dropdown-content a.nav-item-active {
+    font-weight: 600;
+}
+
+/* ── Nav Right ── */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+}
+
+.realtime-clock {
+    background: rgba(255,255,255,0.08);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #cbd5e1;
+    white-space: nowrap;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e26c36, #c85000);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: white;
+    flex-shrink: 0;
+}

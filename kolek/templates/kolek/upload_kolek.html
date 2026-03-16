@@ -1,0 +1,186 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Data Kolektibilitas</title>
+    <!-- Google Fonts inter for modern UI -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Link ke file CSS terpisah dengan cache busting ?v=2 -->
+    <link rel="stylesheet" href="{% static 'kolek/css/upload_kolek.css' %}?v=9">
+</head>
+
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="top-navbar">
+        <div class="nav-left">
+            <div class="nav-icon">
+                <img src="{% static 'kolek/img/banksumutlogo.png' %}" alt="Logo Bank Sumut">
+            </div>
+            <h1 class="nav-title">Kolektibilitas</h1>
+        </div>
+        <div class="nav-right">
+            <div class="realtime-clock" id="realtime-clock">--:--:--</div>
+            <div class="user-avatar">JO</div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Header Baru -->
+        <header class="page-header">
+            <div class="header-title">
+                <h2>Upload Data <span class="text-accent">Kolektibilitas</span></h2>
+                <p class="subtitle">Unggah file Excel untuk memperbarui data rating debitur</p>
+            </div>
+            <div class="header-actions">
+                <!-- Tombol ke Data Pergerakan -->
+                <a href="{% url 'kolek:pergerakan' %}" class="btn-action btn-outline">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                    </svg>
+                    Data Pergerakan
+                </a>
+                <!-- Tombol Bandingkan -->
+                <a href="{% url 'kolek:bandingkan' %}" class="btn-action btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 14v6h6" />
+                        <path d="M20 10V4h-6" />
+                        <path d="M14 20h6v-6" />
+                        <path d="M10 4H4v6" />
+                    </svg>
+                    Bandingkan Dua Tanggal
+                </a>
+            </div>
+        </header>
+
+        <!-- Tampilkan pesan error dari views.py (messages.error) -->
+        {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-error">
+            ⚠️ {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        <div class="card">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="tanggal_upload">Pilih Tanggal Upload</label>
+                    <input type="date" id="tanggal_upload" name="tanggal_upload" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="file_excel">Pilih File Data (Excel)</label>
+                    <input type="file" id="file_excel" name="file_excel" accept=".xlsx,.xls" required>
+                </div>
+
+                <button type="submit">Upload & Proses Data</button>
+            </form>
+        </div>
+
+        <!-- Blok hasil proses -->
+        {% if hasil.selesai %}
+        <div class="hasil">
+            <h3>Hasil Pemrosesan</h3>
+            <div>
+                <span class="stat-badge stat-success">✅ Berhasil: {{ hasil.berhasil }} baris</span>
+                {% if hasil.gagal > 0 %}
+                <span class="stat-badge stat-error">❌ Gagal: {{ hasil.gagal }} baris</span>
+                {% endif %}
+            </div>
+
+            {% if hasil.errors %}
+            <div class="error-list">
+                <p style="font-weight: 600; color: var(--error-color); margin-bottom: 8px;">Detail Error:</p>
+                {% for err in hasil.errors %}
+                <p style="color: var(--error-color); font-size: 13px; margin-bottom: 4px;">• {{ err }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Panduan nama kolom Excel yang harus sesuai -->
+        <div class="panduan-box">
+            <h4>Panduan Nama Header Excel</h4>
+            <p class="panduan-desc">
+                Sistem membaca data berdasarkan <strong>Nama Header di baris 1</strong> (urutan berapapun tidak
+                masalah).
+                Pastikan nama kolom di file Excel Anda sama persis dengan salah satu nama di bawah ini (Huruf
+                besar/kecil tidak masalah):
+            </p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nama Header Excel</th>
+                        <th>Deskripsi / Penjelasan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge-header">RATING_KOLEK</span></td>
+                        <td>Rating Kolek (contoh: 1, 2A, 2B)</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">REK_KREDIT</span></td>
+                        <td>Rekening Kredit <strong>(Wajib ada)</strong></td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">CIFID</span></td>
+                        <td>CIF ID Nasabah</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">NAMA</span></td>
+                        <td>Nama Debitur</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">CABANG</span></td>
+                        <td>Kode Cabang</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">PLAFOND</span></td>
+                        <td>Plafond Pinjaman</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">SALDO_AKHIR</span></td>
+                        <td>Saldo Akhir / Baki Debet</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">HR_TUNGG_POKOK</span></td>
+                        <td>Hari Tunggakan Pokok</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">HR_TUNGG_BUNGA</span></td>
+                        <td>Hari Tunggakan Bunga</td>
+                    </tr>
+                    <tr>
+                        <td><span class="badge-header">KOLEK</span></td>
+                        <td>Kolektibilitas (Angka 1-5)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            let timeString = now.toLocaleDateString('id-ID', options).replace(' pukul', ' |');
+            document.getElementById('realtime-clock').textContent = timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+</body>
+
+</html>

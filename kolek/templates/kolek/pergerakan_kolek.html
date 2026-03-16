@@ -1,0 +1,207 @@
+{% load static humanize %}
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pergerakan Kolektibilitas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'kolek/css/pergerakan_kolek.css' %}?v=8">
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="top-navbar">
+        <div class="nav-left">
+            <div class="nav-icon">
+                <img src="{% static 'kolek/img/banksumutlogo.png' %}" alt="Logo Bank Sumut">
+            </div>
+            <h1 class="nav-title">Kolektibilitas</h1>
+        </div>
+        <div class="nav-right">
+            <div class="realtime-clock" id="realtime-clock">--:--:--</div>
+            <div class="user-avatar">JO</div>
+        </div>
+    </nav>
+
+<div class="container">
+    <!-- Header Baru -->    <header class="page-header">
+        <div class="header-title">
+            <h2>Data Pergerakan <span class="text-accent">Kolektibilitas</span></h2>
+            <p class="subtitle">Pemantauan dan analisis pergerakan rating debitur secara periodik</p>
+        </div>
+        <div class="header-actions">
+            <a href="{% url 'kolek:bandingkan' %}" class="btn-action btn-outline">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="21" y1="12" x2="9" y2="12"></line><line x1="21" y1="6" x2="3" y2="6"></line><line x1="21" y1="18" x2="15" y2="18"></line></svg>
+                Bandingkan Dua Tanggal
+            </a>
+            <a href="{% url 'kolek:upload' %}" class="btn-action btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Upload Data Baru
+            </a>
+        </div>
+    </header>
+
+    <!-- SUMMARY -->
+    <div class="summary-grid">
+        <div class="summary-card border-green">
+            <p class="card-label">TOTAL DEBITUR</p>
+            <h3>{{ total|intcomma }}</h3>
+        </div>
+        <div class="summary-card border-blue">
+            <p class="card-label">TOTAL SALDO AKHIR</p>
+            <h3>Rp {{ summary.total_saldo|floatformat:0|intcomma|default:"0" }}</h3>
+        </div>
+        <div class="summary-card border-yellow">
+            <p class="card-label">HALAMAN</p>
+            <h3>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</h3>
+        </div>
+    </div>
+
+    <!-- FORM FILTER -->
+    <div class="filter-container">
+        <div class="filter-header">
+            <svg class="filter-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+            <span>Filter & Pencarian</span>
+        </div>
+        <form method="GET" class="filter-form">
+            <div class="filter-row">
+                <div class="form-group">
+                    <label>RATING KOLEK</label>
+                    <div class="input-wrapper">
+                        <select name="rating">
+                            <option value="">-- Semua --</option>
+                            {% for r in rating_list %}
+                                <option value="{{ r }}" {% if request.GET.rating == r %}selected{% endif %}>
+                                    {{ r }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group search-group">
+                    <label>CARI NAMA / REKENING</label>
+                    <div class="input-wrapper">
+                        <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" name="search" value="{{ request.GET.search }}"
+                               placeholder="Debitur atau rekening...">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>KODE CABANG</label>
+                    <div class="input-wrapper">
+                        <select name="cabang">
+                            <option value="">-- Semua --</option>
+                            {% for c in cabang_list %}
+                                <!-- Karena db mungkin menyimpan integer atau string, filter disamakan tipenya -->
+                                <option value="{{ c }}" {% if request.GET.cabang|stringformat:"s" == c|stringformat:"s" %}selected{% endif %}>
+                                    {{ c }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>TANGGAL UPLOAD</label>
+                    <div class="input-wrapper">
+                        <select name="tanggal">
+                            <option value="">-- Semua --</option>
+                            {% for tgl in tanggal_list %}
+                                <option value="{{ tgl|date:'Y-m-d' }}" {% if tgl|date:'Y-m-d' == tanggal_aktif %}selected{% endif %}>
+                                    {{ tgl|date:"d M Y" }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="filter-actions">
+                    <button type="submit" class="btn-filter">Terapkan Filter</button>
+                    <a href="{% url 'kolek:pergerakan' %}" class="btn-reset">Reset</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- TABEL DATA -->
+    <div class="table-container">
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rating Kolek</th>
+                        <th>Rekening Kredit</th>
+                        <th>CIF ID</th>
+                        <th>Nama Debitur</th>
+                        <th>Cabang</th>
+                        <th>Plafond</th>
+                        <th>Saldo Akhir</th>
+                        <th>Hr Tugg. Pokok</th>
+                        <th>Hr Tugg. Bunga</th>
+                        <th>Kolek</th>
+                        <th>Tanggal Upload</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in page_obj %}
+                    <tr>
+                        <td><strong>{{ item.rating_kolek }}</strong></td>
+                        <td>{{ item.rek_kredit }}</td>
+                        <td>{{ item.cifid }}</td>
+                        <td>{{ item.nama }}</td>
+                        <td>{{ item.cabang }}</td>
+                        <td>{{ item.plafond|floatformat:0|intcomma }}</td>
+                        <td>{{ item.saldo_akhir|floatformat:0|intcomma }}</td>
+                        <td>{{ item.hr_tungg_pokok }}</td>
+                        <td>{{ item.hr_tungg_bunga }}</td>
+                        <td>{{ item.kolek }}</td>
+                        <td>{{ item.tanggal_upload|date:"Y-m-d" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="11" style="text-align:center; padding: 40px; color: #64748b;">Belum ada data atau tidak ditemukan.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Paginasi -->
+        {% if page_obj.has_other_pages %}
+        <div class="pagination">
+            {% if page_obj.has_previous %}
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page=1">« Awal</a>
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+                {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                    {% if num == page_obj.number %}
+                        <span class="current">{{ num }}</span>
+                    {% else %}
+                        <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ num }}">{{ num }}</a>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.next_page_number }}">Next ›</a>
+                <a href="?rating={{ request.GET.rating }}&search={{ request.GET.search }}&cabang={{ request.GET.cabang }}&tanggal={{ request.GET.tanggal }}&page={{ page_obj.paginator.num_pages }}">Akhir »</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+            let timeString = now.toLocaleDateString('id-ID', options).replace(' pukul', ' |');
+            document.getElementById('realtime-clock').textContent = timeString;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+    </script>
+</body>
+</html>

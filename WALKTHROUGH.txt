@@ -1,0 +1,330 @@
+================================================================
+ WALKTHROUGH — Project Django Kolektibilitas
+ Tanggal Sesi: 04 Maret 2026
+================================================================
+
+RINGKASAN
+---------
+Sistem monitoring kolektibilitas kredit berbasis Django + PostgreSQL.
+Data Excel harian dari core banking dapat diupload dan ditampilkan
+dalam tabel dengan filter dan paginasi.
+
+
+================================================================
+STRUKTUR FILE PROJECT
+================================================================
+
+d:\Project_django\
+|-- config\
+|   |-- settings.py     ← [DIUBAH] timezone, LOGIN_URL
+|   |-- urls.py         ← [DIUBAH] routing utama + redirect root
+|
+|-- kolek\
+|   |-- models.py       ← tidak diubah (sudah ada sebelumnya)
+|   |-- views.py        ← [DIUBAH] banyak penambahan
+|   |-- urls.py         ← [BARU] routing URL level app
+|   |-- admin.py        ← tidak diubah
+|   |
+|   |-- templates\kolek\
+|       |-- pergerakan_kolek.html  ← [BARU] halaman tabel data
+|       |-- upload_kolek.html      ← [BARU] halaman upload Excel
+|
+|-- manage.py
+|-- venv\
+
+
+================================================================
+1. config/urls.py — DIUBAH
+================================================================
+
+DITAMBAHKAN:
+  - Import 'include' dan 'RedirectView'
+  - path('') → RedirectView ke /kolek/pergerakan/
+    FUNGSI: Saat buka http://localhost:8000/ tidak 404,
+            langsung redirect ke halaman utama.
+  - path('kolek/', include('kolek.urls'))
+    FUNGSI: Semua URL berawalan 'kolek/' diteruskan ke kolek/urls.py
+
+DIHAPUS:
+  - Komentar template bawaan Django yang tidak perlu
+
+
+================================================================
+2. config/settings.py — DIUBAH
+================================================================
+
+DITAMBAHKAN/DIUBAH:
+  - LANGUAGE_CODE = 'id'
+    FUNGSI: Bahasa antarmuka Django admin ke Bahasa Indonesia
+
+  - TIME_ZONE = 'Asia/Jakarta'
+    FUNGSI: Waktu server mengikuti WIB, bukan UTC
+
+  - LOGIN_URL = '/admin/login/'
+    FUNGSI: Jika user belum login dan buka halaman yang diproteksi,
+            Django otomatis redirect ke halaman login admin Django.
+            Tidak perlu buat halaman login sendiri.
+
+
+================================================================
+3. kolek/urls.py — BARU DIBUAT
+================================================================
+
+ISI FILE:
+
+  app_name = 'kolek'   ← namespace, agar di template bisa:
+                           {% url 'kolek:pergerakan' %}
+
+  urlpatterns = [
+      path('pergerakan/', views.kolek_view,        name='pergerakan'),
+      path('upload/',     views.upload_kolek_view,  name='upload'),
+  ]
+
+  URL yang tersedia setelah ini:
+    /kolek/pergerakan/  → halaman tabel data
+    /kolek/upload/      → halaman upload Excel
+
+
+================================================================
+4. kolek/views.py — DIUBAH (penambahan terbesar)
+================================================================
+
+--- BAGIAN A: kolek_view (tampil data tabel) ---
+
+DITAMBAHKAN:
+  1. @login_required
+     FUNGSI: Halaman tidak bisa diakses tanpa login.
+             Jika belum login → redirect ke /admin/login/
+
+  2. filter rating_kolek (varchar)
+     SEBELUM: data.filter(kolek=kolek)   ← filter integer
+     SESUDAH: data.filter(rating_kolek=rating)  ← filter varchar
+     ALASAN : rating_kolek isinya '1','2A','2B','2C','3','4','5'
+              bukan angka biasa
+
+  3. rating_list
+     FUNGSI: Ambil semua nilai unik rating_kolek dari database.
+             Dikirim ke template untuk isi dropdown filter secara
+             otomatis — selalu sesuai data aktual di PostgreSQL.
+     KODE  :
+       rating_list = PergerakanKolek.objects
+           .values_list('rating_kolek', flat=True)
+           .distinct()
+           .order_by('rating_kolek')
+
+  4. Paginator (100 baris per halaman)
+     MASALAH: 65.000 baris ditampilkan sekaligus → browser lagging
+     SOLUSI :
+       paginator   = Paginator(data, 100)
+       page_number = request.GET.get('page', 1)
+       page_obj    = paginator.get_page(page_number)
+     HASIL  : Django hanya query 100 baris ke PostgreSQL per request.
+              Halaman jauh lebih ringan dan cepat.
+
+  5. Context yang dikirim ke template:
+       page_obj    → 100 baris halaman saat ini
+       summary     → total saldo & CKPN (dihitung dari semua data filter)
+       total       → jumlah total baris terfilter
+       rating_list → untuk dropdown filter
+
+
+--- BAGIAN B: upload_kolek_view (upload Excel) — BARU ---
+
+ALUR KERJA:
+  GET request  → tampilkan form upload kosong
+  POST request → proses file Excel yang diupload
+
+VALIDASI:
+  - File wajib dipilih
+  - Ekstensi harus .xlsx atau .xls
+
+BACA FILE:
+  - File dibaca ke memory (io.BytesIO), tidak disimpan ke disk
+  - Deteksi format:
+      .xlsx → pakai openpyxl (format ZIP/XML baru)
+      .xls  → pakai xlrd (format binary lama)
+  - Baris ke-1 dianggap header kolom, loop mulai baris ke-2
+
+MAPPING KOLOM:
+  Kolom A (index 1)  = rating_kolek
+  Kolom B (index 2)  = rek_kredit  ← Primary Key
+  Kolom C (index 3)  = cifid
+  ... (sampai kolom S = kolek)
+
+FUNGSI KONVERSI DATA:
+
+  to_float(val)
+  → MASALAH: Angka di Excel .xls terbaca sebagai teks '116,000,000'
+             Python tidak bisa float('116,000,000')
+  → SOLUSI : Hapus koma → float('116000000') → 116000000.0
+
+  to_int(val)
+  → Sama seperti to_float tapi hasilnya integer (bilangan bulat)
+
+  to_date(val)
+  → MASALAH: xlrd membaca tanggal sebagai string panjang:
+             '2024-07-02 00:00:00.000000'
+             Django DateField hanya mau: objek date atau 'YYYY-MM-DD'
+  → SOLUSI :
+      - Jika objek datetime → .date() → hanya bagian tanggalnya
+      - Jika string → potong 10 karakter pertama → 'YYYY-MM-DD'
+
+  to_rating(val)
+  → MASALAH: xlrd membaca angka 1 sebagai float 1.0
+             str(1.0) = '1.0' (salah)
+             Rating harusnya varchar: '1','2A','2B','2C','3','4','5'
+  → SOLUSI :
+      - Float bulat (1.0) → str(int(1.0)) → '1'
+      - Integer (1)       → str(1) → '1'
+      - String ('2a')     → .upper() → '2A'
+
+SIMPAN KE DATABASE:
+  PergerakanKolek.objects.update_or_create(
+      rek_kredit = ...,   ← kunci pencarian (Primary Key)
+      defaults   = {...}  ← data yang diisi/diupdate
+  )
+  → Jika rek_kredit sudah ada di DB → UPDATE data lama
+  → Jika belum ada → CREATE data baru
+  → HASIL: Upload harian tidak membuat data duplikat
+
+HASIL PROSES dikirim ke template:
+  hasil['berhasil'] → jumlah baris berhasil disimpan
+  hasil['gagal']    → jumlah baris yang error
+  hasil['errors']   → daftar pesan error per nomor baris
+
+
+================================================================
+5. kolek/templates/kolek/pergerakan_kolek.html — BARU
+================================================================
+
+KOMPONEN HALAMAN:
+
+  [NAVBAR LINK]
+  → Link ke halaman Upload Data
+
+  [FORM FILTER]
+  → method="GET" → parameter terlihat di URL (?rating=2A&cabang=101)
+  → Dropdown Rating Kolek diisi dari rating_list (data DB, bukan hardcode)
+  → Input Kode Cabang (angka)
+  → Input Tanggal Mulai & Tanggal Akhir
+
+  [SUMMARY CARDS]
+  → Total Debitur   : data.count()
+  → Total Saldo     : Sum('saldo_akhir') dari views.py
+  → Total CKPN      : Sum('ckpn') dari views.py
+  → Halaman         : halaman saat ini / total halaman
+
+  [TABEL DATA]
+  → Urutan kolom sesuai models.py (19 kolom)
+  → Loop: {% for row in page_obj %}
+  → Tidak ada kolom Nomor Urut
+  → Kolom pertama: Rating Kolek
+
+  [PAGINASI]
+  → Navigasi: « Awal ‹ Prev [1][2][3] Next › Akhir »
+  → Filter aktif dipertahankan di URL saat pindah halaman
+  → Info baris: "Baris 1–100 dari 65.535 data"
+
+
+================================================================
+6. kolek/templates/kolek/upload_kolek.html — BARU
+================================================================
+
+KOMPONEN HALAMAN:
+
+  [FORM UPLOAD]
+  → method="POST" enctype="multipart/form-data"
+     (enctype wajib ada agar file bisa terkirim)
+  → {% csrf_token %} wajib ada untuk keamanan form POST Django
+  → Input tanggal (pilih tanggal periode data)
+  → Input file (filter hanya .xlsx dan .xls)
+  → Tombol Proses
+
+  [HASIL PROSES]
+  → Muncul setelah klik Proses (jika hasil['selesai'] = True)
+  → Tampilkan: jumlah berhasil, jumlah gagal
+  → Detail error per baris jika ada
+
+  [PANDUAN KOLOM]
+  → Tabel urutan kolom A–S yang harus ada di file Excel
+
+
+================================================================
+LIBRARY YANG DIINSTALL (tambahan ke venv)
+================================================================
+
+  openpyxl  → pip install openpyxl
+              Membaca file Excel format .xlsx (format baru)
+
+  xlrd      → pip install xlrd
+              Membaca file Excel format .xls (format lama)
+
+
+================================================================
+URL YANG TERSEDIA
+================================================================
+
+  http://127.0.0.1:8000/                  → redirect ke pergerakan
+  http://127.0.0.1:8000/admin/            → Django admin panel
+  http://127.0.0.1:8000/admin/login/      → halaman login
+  http://127.0.0.1:8000/kolek/pergerakan/ → tabel data (butuh login)
+  http://127.0.0.1:8000/kolek/upload/     → upload Excel (butuh login)
+
+
+================================================================
+CARA MENJALANKAN PROJECT
+================================================================
+
+  1. Pastikan PostgreSQL berjalan
+  2. Buka terminal di D:\Project_django
+  3. Aktifkan virtual environment:
+       .\venv\Scripts\activate
+  4. Jalankan server Django:
+       python manage.py runserver
+  5. Buka: http://127.0.0.1:8000/
+
+
+================================================================
+CARA DELETE ISI TABEL (reset data jika perlu)
+================================================================
+
+  Cara 1 - pgAdmin (cepat):
+    TRUNCATE TABLE kolek_pergerakankolek;
+
+  Cara 2 - Django Shell:
+    python manage.py shell
+    >>> from kolek.models import PergerakanKolek
+    >>> PergerakanKolek.objects.all().delete()
+    >>> exit()
+
+  Nama tabel di PostgreSQL: kolek_pergerakankolek
+  (aturan Django: namaapp_namamodel, huruf kecil semua)
+
+
+================================================================
+URUTAN KOLOM EXCEL YANG HARUS DIIKUTI
+================================================================
+
+  Kolom A  → rating_kolek     VARCHAR  contoh: 1, 2A, 2B, 2C, 3, 4, 5
+  Kolom B  → rek_kredit       Angka    PRIMARY KEY (tidak boleh kosong)
+  Kolom C  → cifid            Angka
+  Kolom D  → nama             Teks
+  Kolom E  → cabang           Angka    Kode cabang
+  Kolom F  → plafond          Desimal
+  Kolom G  → saldo_akhir      Desimal
+  Kolom H  → nilai_wajar      Desimal
+  Kolom I  → ckpn             Desimal
+  Kolom J  → strtdt           Tanggal  YYYY-MM-DD
+  Kolom K  → duedt            Tanggal  YYYY-MM-DD
+  Kolom L  → status           Teks
+  Kolom M  → prodid           Teks
+  Kolom N  → prodnm           Teks     Nama produk
+  Kolom O  → tunggakan_pokok  Desimal
+  Kolom P  → tunggakan_bunga  Desimal
+  Kolom Q  → hr_tungg_pokok   Angka    Hari tunggakan pokok
+  Kolom R  → hr_tungg_bunga   Angka    Hari tunggakan bunga
+  Kolom S  → kolek            Angka    Nilai 1-5
+
+================================================================
+ END OF WALKTHROUGH
+================================================================
