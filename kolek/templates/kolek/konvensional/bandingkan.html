@@ -8,7 +8,7 @@
     <title>Perbandingan Kolek — Bank Konvensional</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'kolek/css/navbar.css' %}">
-    <link rel="stylesheet" href="{% static 'kolek/css/bandingkan_kolek.css' %}">
+    <link rel="stylesheet" href="{% static 'kolek/css/bandingkan_kolek.css' %}?v=1.2">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <style>
         .bank-badge {
@@ -24,12 +24,47 @@
         }
 
         /* Hover effects for table rows based on category */
-        tbody tr.tetap:hover { background-color: #f1f5f9; } /* Slate-100 */
-        tbody tr.membaik:hover { background-color: #dcfce7; } /* Green-100 */
-        tbody tr.memburuk:hover { background-color: #fee2e2; } /* Red-100 */
-        tbody tr.berbeda:hover { background-color: #fef9c3; } /* Yellow-100 */
-        tbody tr.lunas:hover { background-color: #dbeafe; } /* Blue-100 */
-        tbody tr.baru:hover { background-color: #f3e8ff; } /* Purple-100 */
+        tbody tr.tetap:hover {
+            background-color: #f1f5f9;
+        }
+
+        tbody tr.membaik:hover {
+            background-color: #dcfce7;
+        }
+
+        tbody tr.memburuk:hover {
+            background-color: #fee2e2;
+        }
+
+        tbody tr.berbeda:hover {
+            background-color: #fef9c3;
+        }
+
+        tbody tr.lunas:hover {
+            background-color: #dbeafe;
+        }
+
+        tbody tr.baru:hover {
+            background-color: #f3e8ff;
+        }
+
+        /* FORCE FIX: Ensure 3-column layout regardless of external CSS caching */
+        .summary-movement-grid {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 16px !important;
+            align-items: flex-start !important;
+        }
+
+        .summary-movement-grid .summary-col {
+            min-width: 0 !important;
+        }
+
+        @media (max-width: 768px) {
+            .summary-movement-grid {
+                grid-template-columns: 1fr !important;
+            }
+        }
     </style>
 </head>
 
@@ -91,6 +126,7 @@
             </div>
             <form method="GET" id="form-utama" class="compare-form">
                 <div class="compare-row">
+                    <input type="hidden" name="per_page_hidden" value="{{ per_page }}">
                     <div class="form-group min-w-180">
                         <label>TANGGAL 1 (AWAL)</label>
                         <div class="input-wrapper">
@@ -113,6 +149,25 @@
                                 {% for tgl in tanggal_list %}
                                 <option value="{{ tgl|date:'Y-m-d' }}" {% if tgl|date:"Y-m-d" == tanggal2 %}selected{% endif %}>{{ tgl|date:"d M Y" }}</option>
                                 {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group min-w-180">
+                        <label>KANTOR CABANG (KC)</label>
+                        <div class="input-wrapper">
+                            <select name="cabang" id="select-kc">
+                                <option value="">-- Semua KC --</option>
+                                {% for kc in kc_list %}
+                                <option value="{{ kc.kode }}" {% if cabang == kc.kode %}selected{% endif %}>{{ kc.kode }} &mdash; {{ kc.nama }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group min-w-180">
+                        <label>KANTOR CABANG PEMBANTU (KCP)</label>
+                        <div class="input-wrapper">
+                            <select name="kcp" id="select-kcp">
+                                <option value="">-- Pilih KC dahulu --</option>
                             </select>
                         </div>
                     </div>
@@ -201,17 +256,29 @@
 
         {% if filter_kat or filter_rating %}
         <div style="margin-bottom: 16px;">
-            <span class="info-filter" style="display:inline-block; padding:8px 16px; background:#fff; border-left:4px solid #1e3a8a; border-radius:4px; font-size:14px; color:#475569; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+            <span class="info-filter"
+                style="display:inline-block; padding:8px 16px; background:#fff; border-left:4px solid #1e3a8a; border-radius:4px; font-size:14px; color:#475569; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
                 Menampilkan hasil yang difilter:
                 {% if filter_kat %}kategori = <strong style="color:#0f172a;">{{ filter_kat|title }}</strong>{% endif %}
-                {% if filter_rating %}{% if filter_kat %} | {% endif %}perubahan rating = <strong style="color:#0f172a;">{{ filter_rating }}</strong>{% endif %}
-                — <strong style="color:#1e3a8a;">{{ page_obj.paginator.count|intcomma }}</strong> rekening ditemukan dari total <strong style="color:#1e3a8a;">{{ ringkasan.total|intcomma }}</strong>
+                {% if filter_rating %}{% if filter_kat %} | {% endif %}perubahan rating = <strong
+                    style="color:#0f172a;">{{ filter_rating }}</strong>{% endif %}
+                — <strong style="color:#1e3a8a;">{{ page_obj.paginator.count|intcomma }}</strong> rekening ditemukan
+                dari total <strong style="color:#1e3a8a;">{{ ringkasan.total|intcomma }}</strong>
             </span>
         </div>
         {% endif %}
 
+        <!-- SUMMARY MOVEMENT TABLE -->
+        {% if summary_membaik %}
+        <div class="summary-movement-section">
+            <h3 class="section-title">Ringkasan Pergerakan Rating — {{ tanggal1_display }} vs {{ tanggal2_display }}
+            </h3>
+            <div class="summary-movement-grid" id="summary-tables-container"></div>
+        </div>
+        {% endif %}
+
         <!-- ECHARTS CONTAINERS -->
-        {% if pie_data %}
+        {% if hbar_data %}
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <h3 style="margin:0; font-size:18px; font-weight:600; color:#1e293b;">Visualisasi Data Terfilter</h3>
             <select id="chart-filter" class="btn-outline"
@@ -221,33 +288,53 @@
                 <option value="hanyaberubah">Hanya Membaik & Memburuk</option>
             </select>
         </div>
-        <div style="display:flex; flex-wrap:wrap; gap:20px; margin-bottom:24px;">
-            <!-- Pie Chart -->
-            <div
-                style="flex:1; min-width:300px; background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border:1px solid #e2e8f0;">
-                <h3
-                    style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
-                    Proporsi Status</h3>
-                <div id="chart-pie" style="width:100%; height:300px;"></div>
-            </div>
 
-            <!-- Bar Chart -->
-            <div
-                style="flex:1; min-width:300px; background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border:1px solid #e2e8f0;">
-                <h3
-                    style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
-                    Exposure Finansial (Saldo Akhir vs Nilai Wajar)</h3>
-                <div id="chart-bar" style="width:100%; height:300px;"></div>
-            </div>
+        <!-- Horizontal Bar Chart (replaces Donut) -->
+        <div
+            style="background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border:1px solid #e2e8f0; margin-bottom:24px;">
+            <h3
+                style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+                Proporsi Status (NOA)</h3>
+            <div id="chart-hbar" style="width:100%; height:300px;"></div>
         </div>
 
+        <!-- Faceted Panel Charts: Saldo Akhir & Nilai Wajar -->
+        <div style="display:flex; flex-wrap:wrap; gap:20px; margin-bottom:24px;">
+            <!-- Panel 1: Saldo Akhir -->
+            <div
+                style="flex:1; min-width:300px; background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border:1px solid #e2e8f0;">
+                <h3
+                    style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+                    Saldo Akhir ({{ tanggal1_display }}) vs Saldo Akhir ({{ tanggal2_display }})</h3>
+                <div id="chart-saldo" style="width:100%; height:350px;"></div>
+            </div>
+
+            <!-- Panel 2: Nilai Wajar -->
+            <div
+                style="flex:1; min-width:300px; background:#fff; border-radius:12px; padding:20px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); border:1px solid #e2e8f0;">
+                <h3
+                    style="font-size:16px; font-weight:600; color:#1e293b; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:12px;">
+                    Nilai Wajar ({{ tanggal1_display }}) vs Nilai Wajar ({{ tanggal2_display }})</h3>
+                <div id="chart-nilai" style="width:100%; height:350px;"></div>
+            </div>
+        </div>
 
         {% endif %}
         <!-- END ECHARTS -->
 
         {% if page_obj and page_obj.object_list %}
-        <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-            <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&export=excel"
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:12px;margin-bottom:16px;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="margin-bottom:0; font-size:12px; color:#64748b;">BARIS PER HALAMAN:</label>
+                <select name="per_page" class="btn-outline"
+                    style="padding:4px 8px; border-radius:6px; font-size:13px; cursor:pointer;"
+                    onchange="document.getElementById('form-utama').querySelector('input[name=\'per_page_hidden\']').value=this.value; document.getElementById('form-utama').submit();">
+                    <option value="20" {% if per_page == 20 %}selected{% endif %}>20</option>
+                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                </select>
+            </div>
+            <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&per_page={{ per_page }}&export=excel"
                 class="btn-action btn-outline" style="background:#10B981;color:white;border:none;"
                 id="btn-export-excel">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
@@ -267,12 +354,13 @@
                             <th>No</th>
                             <th>No. Rekening</th>
                             <th>Nama Debitur</th>
-                            <th>Rating T1</th>
-                            <th>Rating T2</th>
-                            <th>Kolek T1</th>
-                            <th>Kolek T2</th>
-                            <th>Nilai Wajar T2</th>
-                            <th>Saldo Akhir T2</th>
+                            <th>Rating ({{ tanggal1_display }})</th>
+                            <th>Rating ({{ tanggal2_display }})</th>
+                            <th>Kolek ({{ tanggal1_display }})</th>
+                            <th>Kolek ({{ tanggal2_display }})</th>
+                            <th>Hari Tunggakan ({{ tanggal2_display }})</th>
+                            <th>Nilai Wajar ({{ tanggal2_display }})</th>
+                            <th>Saldo Akhir ({{ tanggal2_display }})</th>
                             <th>Perubahan Rating</th>
                             <th>Status</th>
                         </tr>
@@ -287,6 +375,7 @@
                             <td>{{ r.rating_t2_disp }}</td>
                             <td>{{ r.kolek_t1_disp }}</td>
                             <td>{{ r.kolek_t2_disp }}</td>
+                            <td>{{ r.hari_tunggakan_t2 }} Hari</td>
                             <td>{{ r.nilai_wajar_t2_disp|intcomma }}</td>
                             <td>{{ r.saldo_t2_disp|intcomma }}</td>
                             <td>
@@ -311,29 +400,25 @@
                         {% endfor %}
                     </tbody>
                 </table>
-            </div>
-            <div class="pagination">
+                  <div class="pagination">
                 {% if page_obj.has_previous %}
-                <a
-                    href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page=1">«
-                    Awal</a>
-                <a
-                    href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ page_obj.previous_page_number }}">‹
-                    Prev</a>
+                <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page=1">« Awal</a>
+                <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>
                 {% endif %}
                 {% for num in page_obj.paginator.page_range %}
                 {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
                     {% if num == page_obj.number %}
-                        <span class="current">{{ num }}</span>
+                    <span class="current">{{ num }}</span>
                     {% else %}
-                        <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ num }}">{{ num }}</a>
+                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ num }}">{{ num }}</a>
                     {% endif %}
-                    {% endif %}
-                    {% endfor %}
-                    {% if page_obj.has_next %}
-                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ page_obj.next_page_number }}">Next ›</a>
-                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&page={{ page_obj.paginator.num_pages }}">Akhir »</a>
-                    {% endif %}
+                {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.next_page_number }}">Next ›</a>
+                <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.paginator.num_pages }}">Akhir »</a>
+                {% endif %}
+            </div>
                     <div style="flex-basis:100%;text-align:center;color:#64748b;font-size:13px;margin-top:12px;">
                         Menampilkan baris {{ page_obj.start_index }}–{{ page_obj.end_index }} dari total {{ page_obj.paginator.count|intcomma }} data
                     </div>
@@ -368,49 +453,130 @@
             if (be) { be.addEventListener('click', function (e) { e.preventDefault(); show('Menyiapkan File...'); var token = Math.random().toString(36).substring(2, 15); var url = new URL(this.href, window.location.origin); url.searchParams.set('export_token', token); window.location.href = url.toString(); var cn = 'export_done_' + token; var ci = setInterval(function () { if (document.cookie.indexOf(cn + '=true') !== -1) { hide(); clearInterval(ci); document.cookie = cn + '=; Max-Age=0; path=/'; } }, 500); }); }
         });
 
-        {% if pie_data %}
+        {% if summary_membaik %}
         document.addEventListener('DOMContentLoaded', function () {
-            var pie_data_str = '{{ pie_data|escapejs }}';
-            var pie_data = JSON.parse(pie_data_str);
-            var bar_cat_str = '{{ bar_categories|escapejs }}';
-            var bar_cat = JSON.parse(bar_cat_str);
-            var bar_saldo_str = '{{ bar_saldo|escapejs }}';
-            var bar_saldo = JSON.parse(bar_saldo_str);
-            var bar_nilai_str = '{{ bar_nilai|escapejs }}';
-            var bar_nilai = JSON.parse(bar_nilai_str);
+            var summMembaik = JSON.parse('{{ summary_membaik|escapejs }}');
+            var summTetap = JSON.parse('{{ summary_tetap|escapejs }}');
+            var summMemburuk = JSON.parse('{{ summary_memburuk|escapejs }}');
+            var tgl2 = '{{ tanggal2_display|escapejs }}';
 
+            function formatNumber(n) {
+                if (n === 0) return '0';
+                return n.toLocaleString('id-ID', { maximumFractionDigits: 0 });
+            }
 
-            // 1. Pie Chart
-            var chartPie = echarts.init(document.getElementById('chart-pie'));
-            chartPie.setOption({
-                tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-                legend: { bottom: '0%', left: 'center' },
+            function buildTable(data, category, accentColor) {
+                var html = '<div class="summary-col">';
+                html += '<table class="summary-tbl">';
+                html += '<thead>';
+                html += '<tr class="summary-header-category"><th colspan="3" style="background:' + accentColor + ';color:#fff;text-align:center;font-size:14px;font-weight:700;padding:10px 16px;letter-spacing:0.02em;">URAIAN — ' + category.toUpperCase() + '</th></tr>';
+                html += '<tr><th>PERGERAKAN</th><th style="text-align:right;">NOA</th><th style="text-align:right;">Sum of NILAI WAJAR</th></tr>';
+                html += '</thead><tbody>';
+                for (var i = 0; i < data.rows.length; i++) {
+                    var r = data.rows[i];
+                    html += '<tr><td>' + r.pergerakan + '</td><td style="text-align:right;">' + formatNumber(r.noa) + '</td><td style="text-align:right;">' + formatNumber(r.sum_nilai) + '</td></tr>';
+                }
+                html += '<tr class="grand-total"><td><strong>Grand Total</strong></td><td style="text-align:right;"><strong>' + formatNumber(data.grand_noa) + '</strong></td><td style="text-align:right;"><strong>' + formatNumber(data.grand_nilai) + '</strong></td></tr>';
+                html += '<tr class="extra-row"><td>Saldo Akhir (' + tgl2 + ')</td><td></td><td style="text-align:right;">' + formatNumber(data.saldo_akhir) + '</td></tr>';
+                html += '<tr class="extra-row"><td>Nilai Wajar (' + tgl2 + ')</td><td></td><td style="text-align:right;">' + formatNumber(data.nilai_wajar) + '</td></tr>';
+                html += '</tbody></table></div>';
+                return html;
+            }
+
+            var container = document.getElementById('summary-tables-container');
+            if (container) {
+                container.innerHTML =
+                    buildTable(summMembaik, 'Membaik', '#15803d') +
+                    buildTable(summTetap, 'Tetap', '#475569') +
+                    buildTable(summMemburuk, 'Memburuk', '#dc2626');
+            }
+        });
+        {% endif %}
+
+        {% if hbar_data %}
+        document.addEventListener('DOMContentLoaded', function () {
+            var hbar_data = JSON.parse('{{ hbar_data|escapejs }}');
+            var bar_cat = JSON.parse('{{ bar_categories|escapejs }}');
+            var bar_saldo_t1 = JSON.parse('{{ bar_saldo_t1|escapejs }}');
+            var bar_saldo_t2 = JSON.parse('{{ bar_saldo_t2|escapejs }}');
+            var bar_nilai_t1 = JSON.parse('{{ bar_nilai_t1|escapejs }}');
+            var bar_nilai_t2 = JSON.parse('{{ bar_nilai_t2|escapejs }}');
+            var tgl1Disp = '{{ tanggal1_display|escapejs }}';
+            var tgl2Disp = '{{ tanggal2_display|escapejs }}';
+
+            // 1. Horizontal Bar Chart (replaces Donut)
+            var chartHbar = echarts.init(document.getElementById('chart-hbar'));
+            var hbarNames = hbar_data.map(function (d) { return d.name; });
+            var hbarValues = hbar_data.map(function (d) { return d.value; });
+            var hbarColors = hbar_data.map(function (d) { return d.color; });
+            chartHbar.setOption({
+                tooltip: {
+                    trigger: 'axis', axisPointer: { type: 'shadow' },
+                    formatter: function (params) {
+                        var p = params[0];
+                        var total = hbarValues.reduce(function (a, b) { return a + b; }, 0);
+                        var pct = total > 0 ? (p.value / total * 100).toFixed(1) : '0.0';
+                        return p.name + ': ' + p.value.toLocaleString('id-ID') + ' (' + pct + '%)';
+                    }
+                },
+                grid: { left: '3%', right: '12%', top: '3%', bottom: '3%', containLabel: true },
+                xAxis: { type: 'value', axisLabel: { formatter: function (v) { return v.toLocaleString('id-ID'); } } },
+                yAxis: { type: 'category', data: hbarNames.reverse(), axisLabel: { fontWeight: 600, fontSize: 13 } },
                 series: [{
-                    type: 'pie', radius: ['40%', '70%'], avoidLabelOverlap: false,
-                    itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-                    label: { 
-                        show: true, 
-                        position: 'outside',
-                        formatter: '{b}\n{d}%',
-                        fontWeight: 'bold'
-                    },
-                    emphasis: { label: { show: true, fontSize: 16, fontWeight: 'bold' } },
-                    labelLine: { show: true, length: 15, length2: 10 },
-                    data: pie_data
+                    type: 'bar', data: hbarValues.reverse().map(function (v, i) {
+                        return { value: v, itemStyle: { color: hbarColors.slice().reverse()[i], borderRadius: [0, 6, 6, 0] } };
+                    }),
+                    barWidth: '60%',
+                    label: {
+                        show: true, position: 'right', fontWeight: 600, fontSize: 13,
+                        formatter: function (p) {
+                            var total = hbar_data.reduce(function (a, b) { return a + b.value; }, 0);
+                            var pct = total > 0 ? (p.value / total * 100).toFixed(1) : '0.0';
+                            return p.value.toLocaleString('id-ID') + ' (' + pct + '%)';
+                        }
+                    }
                 }]
             });
 
-            // 2. Bar Chart
-            var chartBar = echarts.init(document.getElementById('chart-bar'));
-            chartBar.setOption({
-                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-                legend: { data: ['Saldo Akhir', 'Nilai Wajar'], bottom: '0%' },
+            // 2. Faceted Panel Chart — Saldo Akhir
+            var chartSaldo = echarts.init(document.getElementById('chart-saldo'));
+            chartSaldo.setOption({
+                tooltip: {
+                    trigger: 'axis', axisPointer: { type: 'shadow' },
+                    formatter: function (params) {
+                        var tip = params[0].axisValue + '<br>';
+                        params.forEach(function (p) { tip += p.marker + ' ' + p.seriesName + ': ' + p.value.toLocaleString('id-ID') + '<br>'; });
+                        return tip;
+                    }
+                },
+                legend: { data: [tgl1Disp, tgl2Disp], bottom: '0%' },
                 grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
-                xAxis: { type: 'category', data: bar_cat },
-                yAxis: { type: 'value', axisLabel: { formatter: '{value}' } },
+                xAxis: { type: 'category', data: bar_cat, axisLabel: { fontSize: 12 } },
+                yAxis: { type: 'value', axisLabel: { formatter: function (v) { return (v / 1e9).toFixed(0) + 'M'; } } },
                 series: [
-                    { name: 'Saldo Akhir', type: 'bar', data: bar_saldo, itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] } },
-                    { name: 'Nilai Wajar', type: 'bar', data: bar_nilai, itemStyle: { color: '#fbbf24', borderRadius: [4, 4, 0, 0] } }
+                    { name: tgl1Disp, type: 'bar', data: bar_saldo_t1, itemStyle: { color: '#3b82f6', borderRadius: [4, 4, 0, 0] } },
+                    { name: tgl2Disp, type: 'bar', data: bar_saldo_t2, itemStyle: { color: '#1e3a8a', borderRadius: [4, 4, 0, 0] } }
+                ]
+            });
+
+            // 3. Faceted Panel Chart — Nilai Wajar
+            var chartNilai = echarts.init(document.getElementById('chart-nilai'));
+            chartNilai.setOption({
+                tooltip: {
+                    trigger: 'axis', axisPointer: { type: 'shadow' },
+                    formatter: function (params) {
+                        var tip = params[0].axisValue + '<br>';
+                        params.forEach(function (p) { tip += p.marker + ' ' + p.seriesName + ': ' + p.value.toLocaleString('id-ID') + '<br>'; });
+                        return tip;
+                    }
+                },
+                legend: { data: [tgl1Disp, tgl2Disp], bottom: '0%' },
+                grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
+                xAxis: { type: 'category', data: bar_cat, axisLabel: { fontSize: 12 } },
+                yAxis: { type: 'value', axisLabel: { formatter: function (v) { return (v / 1e9).toFixed(0) + 'M'; } } },
+                series: [
+                    { name: tgl1Disp, type: 'bar', data: bar_nilai_t1, itemStyle: { color: '#f59e0b', borderRadius: [4, 4, 0, 0] } },
+                    { name: tgl2Disp, type: 'bar', data: bar_nilai_t2, itemStyle: { color: '#d97706', borderRadius: [4, 4, 0, 0] } }
                 ]
             });
 
@@ -419,51 +585,94 @@
             if (chartFilter) {
                 chartFilter.addEventListener('change', function (e) {
                     var val = e.target.value;
-                    var selectedPie = {};
-                    if (val === 'tanpatetap') {
-                        selectedPie = { 'Tetap': false, 'Membaik': true, 'Memburuk': true, 'Lunas / Tutup': true, 'Fasilitas Baru': true };
-                    } else if (val === 'hanyaberubah') {
-                        selectedPie = { 'Tetap': false, 'Membaik': true, 'Memburuk': true, 'Lunas / Tutup': false, 'Fasilitas Baru': false };
-                    } else {
-                        selectedPie = { 'Tetap': true, 'Membaik': true, 'Memburuk': true, 'Lunas / Tutup': true, 'Fasilitas Baru': true };
-                    }
-                    chartPie.setOption({ legend: { selected: selectedPie } });
 
-                    var new_cat = [];
-                    var new_saldo = [];
-                    var new_nilai = [];
+                    // Filter horizontal bar
+                    var new_hbar_names = [], new_hbar_values = [], new_hbar_colors = [];
+                    for (var i = 0; i < hbar_data.length; i++) {
+                        var show = true;
+                        if (val === 'tanpatetap' && hbar_data[i].name === 'Tetap') show = false;
+                        if (val === 'hanyaberubah' && hbar_data[i].name !== 'Membaik' && hbar_data[i].name !== 'Memburuk') show = false;
+                        if (show) {
+                            new_hbar_names.push(hbar_data[i].name);
+                            new_hbar_values.push(hbar_data[i].value);
+                            new_hbar_colors.push(hbar_data[i].color);
+                        }
+                    }
+                    chartHbar.setOption({
+                        yAxis: { data: new_hbar_names.reverse() },
+                        series: [{
+                            data: new_hbar_values.reverse().map(function (v, i) {
+                                return { value: v, itemStyle: { color: new_hbar_colors.slice().reverse()[i], borderRadius: [0, 6, 6, 0] } };
+                            })
+                        }]
+                    });
+
+                    // Filter bar charts
+                    var new_cat = [], new_st1 = [], new_st2 = [], new_nt1 = [], new_nt2 = [];
                     for (var i = 0; i < bar_cat.length; i++) {
                         var c = bar_cat[i];
                         var show = true;
                         if (val === 'tanpatetap' && c === 'Tetap') show = false;
                         if (val === 'hanyaberubah' && (c !== 'Membaik' && c !== 'Memburuk')) show = false;
-
                         if (show) {
                             new_cat.push(c);
-                            new_saldo.push(bar_saldo[i]);
-                            new_nilai.push(bar_nilai[i]);
+                            new_st1.push(bar_saldo_t1[i]);
+                            new_st2.push(bar_saldo_t2[i]);
+                            new_nt1.push(bar_nilai_t1[i]);
+                            new_nt2.push(bar_nilai_t2[i]);
                         }
                     }
-                    chartBar.setOption({
-                        xAxis: { data: new_cat },
-                        series: [
-                            { data: new_saldo },
-                            { data: new_nilai }
-                        ]
-                    });
+                    chartSaldo.setOption({ xAxis: { data: new_cat }, series: [{ data: new_st1 }, { data: new_st2 }] });
+                    chartNilai.setOption({ xAxis: { data: new_cat }, series: [{ data: new_nt1 }, { data: new_nt2 }] });
                 });
             }
 
             // Responsive Resizing
             window.addEventListener('resize', function () {
-                chartPie.resize();
-                chartBar.resize();
+                chartHbar.resize();
+                chartSaldo.resize();
+                chartNilai.resize();
             });
         });
         {% endif %}
 
         function updateClock() { var now = new Date(); document.getElementById('realtime-clock').textContent = now.toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).replace(' pukul', ' |'); }
         setInterval(updateClock, 1000); updateClock();
+    </script>
+
+    {{ cabang_mapping|json_script:"cabang-data" }}
+    <script>
+        /* Cascading Dropdown KC -> KCP */
+        (function() {
+            var selectKC = document.getElementById('select-kc');
+            var selectKCP = document.getElementById('select-kcp');
+            if (selectKC && selectKCP) {
+                var dataElement = document.getElementById('cabang-data');
+                if (dataElement) {
+                    var data = JSON.parse(dataElement.textContent);
+                    var selectedKCP = "{{ kcp }}";
+
+                    function populateKCP(kodeKC) {
+                        selectKCP.innerHTML = '<option value="">-- Semua KCP --</option>';
+                        var list = data[kodeKC] || [];
+                        list.forEach(function(item) {
+                            var opt = document.createElement('option');
+                            opt.value = item.kode;
+                            opt.textContent = item.kode + ' — ' + item.nama;
+                            if (item.kode === selectedKCP) opt.selected = true;
+                            selectKCP.appendChild(opt);
+                        });
+                        selectKCP.disabled = (list.length === 0);
+                    }
+
+                    if (selectKC.value) { populateKCP(selectKC.value); }
+
+                    selectKC.addEventListener('change', function() {
+                        populateKCP(this.value);
+                    });
+                }
+            }
+        })();
     </script>
 </body>
 

@@ -120,14 +120,14 @@ def _clamp_int(val, min_val=-2147483648, max_val=2147483647):
     return max(min_val, min(max_val, int(val)))
 
 
-# Batas wajar hari tunggakan: 0 s/d 36.500 hari (≈100 tahun).
-# Nilai di atas ini PASTI bukan hari tunggakan — kemungkinan data finansial yang salah kolom.
-MAX_HARI_TUNGGAKAN = 36_500
+# Batas wajar hari tunggakan: 0 s/d 3.650 hari (≈10 tahun).
+# Nilai di atas ini kemungkinan besar data finansial (Saldo) yang salah kolom.
+MAX_HARI_TUNGGAKAN = 3650
 
 def _clamp_hari(val) -> int:
     """Kembalikan hari tunggakan yang wajar. Jika di luar [0, MAX_HARI_TUNGGAKAN] → 0."""
     try:
-        v = int(val)
+        v = int(float(val)) # bypass float strings
         if 0 <= v <= MAX_HARI_TUNGGAKAN:
             return v
         return 0
@@ -144,11 +144,15 @@ def _bersihkan_df(df: pd.DataFrame, kolom_map: dict) -> pd.DataFrame:
     # Hapus kolom duplikat (ambil yang pertama)
     df = df.loc[:, ~df.columns.duplicated()]
 
-    # FUZZY MAPPING: Catch column name variations (e.g., "HARI_TUNGGAKAN_POKOK", "TUNG_POKOK", "TUNGG_MRGN")
+    # FUZZY MAPPING: Catch variations, but EXCLUDE money/balance columns
     for c in list(df.columns):
-        if 'TUNG' in c and 'POKOK' in c:
+        # Jika kolom mengandung kata 'SALDO', 'PLAFOND', atau 'WAJAR', jangan jadikan HR_TUNGG
+        if any(x in c for x in ['SALDO', 'PLAFOND', 'WAJAR', 'OS_']):
+            continue
+
+        if 'TUNG' in c and 'POKOK' in c and 'HR_TUNGG_POKOK' not in df.columns:
             df.rename(columns={c: 'HR_TUNGG_POKOK'}, inplace=True)
-        elif 'TUNG' in c and ('MARGIN' in c or 'BUNGA' in c):
+        elif 'TUNG' in c and ('MARGIN' in c or 'BUNGA' in c) and 'HR_TUNGG_MARGIN' not in df.columns:
             df.rename(columns={c: 'HR_TUNGG_MARGIN'}, inplace=True)
 
     rename_dict = {k: v for k, v in kolom_map.items() if k in df.columns}
@@ -223,7 +227,7 @@ def _proses_upload(request, ModelKelas, kolom_map, redirect_name, template_name,
         try:
             file_bytes = io.BytesIO(file.read())
             
-            # ── Baca Excel dengan pandas menggunakan engine tercepat ──
+            # --- Pembacaan Excel dengan engine performa tinggi ---
             try:
                 import python_calamine
                 engine = 'calamine'
@@ -235,90 +239,56 @@ def _proses_upload(request, ModelKelas, kolom_map, redirect_name, template_name,
 
             for col in KOLOM_WAJIB:
                 if col not in df.columns:
-                    messages.error(request, f'Kolom wajib tidak ditemukan: {col}. Kolom terbaca: {list(df.columns)}')
+                    messages.error(request, f'Kolom wajib tidak ditemukan: {col}')
                     return redirect(redirect_name)
 
-            # Ambil REK_KREDIT yang sudah ada untuk memisahkan insert dan update
-            existing_pks = set(
-                ModelKelas.objects.filter(tanggal_upload=tanggal_upload).values_list('accnbr', flat=True)
-            )
-
+            # --- OPTIMISASI: DELETE-THEN-INSERT (PostgreSQL) ---
+            from django.db import connection, transaction
+            
             FIELD_DB = ['kelompok_sandi', 'cifid', 'cifnm', 'branchid',
                         'plafond', 'saldo_akhir', 'nilai_wajar',
                         'hr_tungg_pokok', 'hr_tungg_margin', 'kolek']
-
-            mask_existing = df['accnbr'].isin(existing_pks)
-            df_insert = df[~mask_existing].copy()
-            df_update = df[mask_existing].copy()
             
-            # 1. PROSES INSERT CEPAT MENGGUNAKAN POSTGRESQL COPY
-            if not df_insert.empty:
-                # Pastikan SEMUA kolom FIELD_DB ada di DataFrame, karena Django tidak menyetel 
-                # default=0 di skema tabel database (ia mengaturnya dari level Python).
-                # Jika kita tidak mengirim kolom tersebut, PostgreSQL akan mencoba memasukkan NULL.
-                for col in FIELD_DB:
-                    if col not in df_insert.columns:
-                        if col in ['hr_tungg_pokok', 'hr_tungg_margin', 'kolek', 'branchid']:
-                            df_insert[col] = 0
-                        elif col in ['plafond', 'saldo_akhir', 'nilai_wajar']:
-                            df_insert[col] = 0.0
-                        elif col in ['kelompok_sandi', 'cifid', 'cifnm']:
-                            df_insert[col] = ''
+            # Memastikan semua kolom database ada di DataFrame
+            for col in FIELD_DB:
+                if col not in df.columns:
+                    if col in ['hr_tungg_pokok', 'hr_tungg_margin', 'kolek', 'branchid']:
+                        df[col] = 0
+                    elif col in ['plafond', 'saldo_akhir', 'nilai_wajar']:
+                        df[col] = 0.0
+                    else:
+                        df[col] = ''
 
-                # Sekarang ambil semua field secara eksplisit
-                insert_cols = ['tanggal_upload', 'accnbr'] + FIELD_DB
-                df_insert['tanggal_upload'] = tanggal_upload
-                df_final_insert = df_insert[insert_cols].copy()
-                
-                # Isi nilai kosong (NaN) dengan 0 untuk numeric, dan string kosong untuk text
-                for f in insert_cols:
-                    if f in ['hr_tungg_pokok', 'hr_tungg_margin', 'kolek', 'branchid']:
-                        df_final_insert[f] = df_final_insert[f].fillna(0).astype(int)
-                    elif f in ['plafond', 'saldo_akhir', 'nilai_wajar']:
-                        df_final_insert[f] = df_final_insert[f].fillna(0)
-                    elif f in ['kelompok_sandi', 'cifid', 'cifnm']:
-                        df_final_insert[f] = df_final_insert[f].fillna('')
+            insert_cols = ['tanggal_upload', 'accnbr'] + FIELD_DB
+            df['tanggal_upload'] = tanggal_upload
+            
+            # Normalisasi tipe data untuk performa maksimal COPY command
+            for f in insert_cols:
+                if f in ['hr_tungg_pokok', 'hr_tungg_margin', 'kolek', 'branchid']:
+                    df[f] = df[f].fillna(0).astype(int)
+                elif f in ['plafond', 'saldo_akhir', 'nilai_wajar']:
+                    df[f] = df[f].fillna(0)
+                else:
+                    df[f] = df[f].fillna('')
 
-                csv_buffer = io.StringIO()
-                df_final_insert.to_csv(csv_buffer, index=False, header=False, sep='\t')
-                csv_buffer.seek(0)
+            # Buffer in-memory untuk transfer data cepat
+            csv_buffer = io.StringIO()
+            df[insert_cols].to_csv(csv_buffer, index=False, header=False, sep='\t')
+            csv_buffer.seek(0)
+
+            with transaction.atomic():
+                # 1. Hapus data lama pada tanggal tersebut (Atomik & Sangat Cepat)
+                ModelKelas.objects.filter(tanggal_upload=tanggal_upload).delete()
                 
-                from django.db import connection
+                # 2. Masukkan data baru menggunakan PostgreSQL COPY (Sangat Cepat)
                 with connection.cursor() as cursor:
                     table_name = ModelKelas._meta.db_table
-                    # KUNCI UTAMA: Sebutkan semua kolomnya secara ketat.
                     columns_sql = ', '.join([f'"{col}"' for col in insert_cols])
                     sql = f"COPY {table_name} ({columns_sql}) FROM STDIN WITH CSV DELIMITER '\t' NULL ''"
                     cursor.copy_expert(sql, csv_buffer)
                 
-                hasil['berhasil'] += len(df_final_insert)
-
-            # 2. PROSES UPDATE EFEKTIF
-            if not df_update.empty:
-                # Muat batch record yang ingin diupdate ke memory
-                existing_objs = {
-                    obj.accnbr: obj for obj in ModelKelas.objects.filter(
-                        tanggal_upload=tanggal_upload,
-                        accnbr__in=existing_pks
-                    )
-                }
-
-                to_update_objs = []
-                update_fields_available = [f for f in FIELD_DB if f in df_update.columns]
-                
-                recordsToUpdate = df_update.to_dict('records')
-                for row in recordsToUpdate:
-                    rek = row['accnbr']
-                    if rek in existing_objs:
-                        obj = existing_objs[rek]
-                        for f in update_fields_available:
-                            setattr(obj, f, row[f])
-                        to_update_objs.append(obj)
-                
-                if to_update_objs:
-                    ModelKelas.objects.bulk_update(to_update_objs, update_fields_available, batch_size=1000)
-                    hasil['berhasil'] += len(to_update_objs)
-
+                hasil['berhasil'] = len(df)
+            
             hasil['selesai'] = True
 
         except Exception as e:
@@ -340,6 +310,10 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
     tanggal2      = request.GET.get('tanggal2')
     filter_kat    = request.GET.get('kategori', '')
     filter_rating = request.GET.get('filter_rating', '')
+    cabang        = request.GET.get('cabang')
+    kcp           = request.GET.get('kcp')
+    per_page_raw  = request.GET.get('per_page_hidden') or request.GET.get('per_page', '20')
+    per_page      = int(per_page_raw) if per_page_raw in ('20', '50', '100', 20, 50, 100) else 20
     hasil_banding = None
     ringkasan     = {}
     page_obj      = None
@@ -352,10 +326,18 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
         .order_by('tanggal_upload')
     )
 
+    # Format tanggal display (Indonesian locale)
+    tanggal1_display = ''
+    tanggal2_display = ''
+    BULAN_ID = {1:'Januari',2:'Februari',3:'Maret',4:'April',5:'Mei',6:'Juni',
+                7:'Juli',8:'Agustus',9:'September',10:'Oktober',11:'November',12:'Desember'}
+
     if tanggal1 and tanggal2:
         try:
             d1 = datetime.strptime(tanggal1, "%Y-%m-%d").date()
             d2 = datetime.strptime(tanggal2, "%Y-%m-%d").date()
+            tanggal1_display = f"{d1.day} {BULAN_ID[d1.month]} {d1.year}"
+            tanggal2_display = f"{d2.day} {BULAN_ID[d2.month]} {d2.year}"
             redirect_url = extra_ctx.get('redirect_url') if extra_ctx else 'kolek:bandingkan'
             if d2 <= d1:
                 messages.error(request, "Tanggal 2 harus lebih baru dari Tanggal 1.")
@@ -366,9 +348,18 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
         except ValueError:
             pass
 
-        COLS = ['accnbr', 'cifnm', 'kelompok_sandi', 'kolek', 'saldo_akhir', 'nilai_wajar']
+        COLS = ['accnbr', 'cifnm', 'kelompok_sandi', 'kolek', 'saldo_akhir', 'nilai_wajar', 'branchid', 'hr_tungg_pokok', 'hr_tungg_margin']
         qs1 = ModelKelas.objects.filter(tanggal_upload=tanggal1).values(*COLS)
         qs2 = ModelKelas.objects.filter(tanggal_upload=tanggal2).values(*COLS)
+
+        if kcp:
+            qs1 = qs1.filter(branchid=kcp)
+            qs2 = qs2.filter(branchid=kcp)
+        elif cabang:
+            kcp_kodes = list(KantorCabangPembantu.objects.filter(cabang_induk__kode=cabang).values_list('kode', flat=True))
+            kcp_kodes.append(cabang)
+            qs1 = qs1.filter(branchid__in=kcp_kodes)
+            qs2 = qs2.filter(branchid__in=kcp_kodes)
 
         df1 = pd.DataFrame(list(qs1))
         df2 = pd.DataFrame(list(qs2))
@@ -386,7 +377,7 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
             df_pivot = df_all.pivot_table(
                 index='accnbr',
                 columns='sumber',
-                values=['cifnm', 'kolek', 'kelompok_sandi', 'saldo_akhir', 'nilai_wajar'],
+                values=['cifnm', 'kolek', 'kelompok_sandi', 'saldo_akhir', 'nilai_wajar', 'hr_tungg_pokok', 'hr_tungg_margin'],
                 aggfunc='first'
             )
             df_pivot.columns = [f"{col[0]}_{col[1].lower()}" for col in df_pivot.columns]
@@ -395,7 +386,9 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
             cols_needed = ['cifnm_t1', 'cifnm_t2', 'kolek_t1', 'kolek_t2',
                            'kelompok_sandi_t1', 'kelompok_sandi_t2',
                            'saldo_akhir_t1', 'saldo_akhir_t2',
-                           'nilai_wajar_t1', 'nilai_wajar_t2']
+                           'nilai_wajar_t1', 'nilai_wajar_t2',
+                           'hr_tungg_pokok_t1', 'hr_tungg_pokok_t2',
+                           'hr_tungg_margin_t1', 'hr_tungg_margin_t2']
             for c in cols_needed:
                 if c not in df.columns:
                     df[c] = None
@@ -455,6 +448,41 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
                 df.loc[df['kategori'].isin(['membaik', 'memburuk', 'berbeda']), 'perubahan_label'].unique().tolist()
             )
 
+            # --- SUMMARY MOVEMENT TABLE (before filtering) ---
+            import math
+            def safe_float(v):
+                if pd.isna(v) or math.isinf(v) or math.isnan(v):
+                    return 0.0
+                return float(v)
+
+            def _build_summary(df_full, kategori):
+                df_k = df_full[df_full['kategori'] == kategori].copy()
+                if df_k.empty:
+                    return {'rows': [], 'grand_noa': 0, 'grand_nilai': 0, 'saldo_akhir': 0, 'nilai_wajar': 0}
+                grouped = df_k.groupby('perubahan_label').agg(
+                    noa=('accnbr', 'count'),
+                    sum_nilai=('nilai_wajar_t2', lambda x: safe_float(x.sum())),
+                ).reset_index()
+                grouped = grouped.sort_values('noa', ascending=False)
+                rows = []
+                for _, row in grouped.iterrows():
+                    rows.append({
+                        'pergerakan': row['perubahan_label'],
+                        'noa': int(row['noa']),
+                        'sum_nilai': row['sum_nilai'],
+                    })
+                grand_noa = int(grouped['noa'].sum())
+                grand_nilai = safe_float(grouped['sum_nilai'].sum())
+                saldo_akhir = safe_float(df_k['saldo_akhir_t2'].sum())
+                nilai_wajar = safe_float(df_k['nilai_wajar_t2'].sum())
+                return {'rows': rows, 'grand_noa': grand_noa, 'grand_nilai': grand_nilai,
+                        'saldo_akhir': saldo_akhir, 'nilai_wajar': nilai_wajar}
+
+            summary_membaik = _build_summary(df, 'membaik')
+            summary_tetap = _build_summary(df, 'tetap')
+            summary_memburuk = _build_summary(df, 'memburuk')
+            # --- END SUMMARY MOVEMENT TABLE ---
+
             if filter_kat:
                 df = df[df['kategori'] == filter_kat]
             if filter_rating:
@@ -466,60 +494,69 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
             df['rating_t2_disp']  = df['kelompok_sandi_t2'].fillna('-').astype(str)
             df['saldo_t1_disp']   = df['saldo_akhir_t1'].fillna('-')
             df['saldo_t2_disp']   = df['saldo_akhir_t2'].fillna('-')
+            df['nilai_wajar_t1_disp'] = df['nilai_wajar_t1'].fillna('-')
             df['nilai_wajar_t2_disp'] = df['nilai_wajar_t2'].fillna('-')
 
+            def _get_ht(r):
+                p = r['hr_tungg_pokok_t2']
+                m = r['hr_tungg_margin_t2']
+                p = int(p) if pd.notna(p) else 0
+                m = int(m) if pd.notna(m) else 0
+                return max(p, m)
+            df['hari_tunggakan_t2'] = df.apply(_get_ht, axis=1)
+
             # --- ECHARTS DATA PREPARATION ---
-            import json
-            import math
 
-            def safe_float(v):
-                if pd.isna(v) or math.isinf(v) or math.isnan(v):
-                    return 0.0
-                return float(v)
-
-            # 1. Pie Chart / Donut Chart (Jumlah per kategori)
-            pie_data = [
-                {'name': 'Tetap', 'value': ringkasan['tetap'], 'itemStyle': {'color': '#94a3b8'}},
-                {'name': 'Membaik', 'value': ringkasan['membaik'], 'itemStyle': {'color': '#10b981'}},
-                {'name': 'Memburuk', 'value': ringkasan['memburuk'], 'itemStyle': {'color': '#ef4444'}},
-                {'name': 'Lunas / Tutup', 'value': ringkasan['lunas'], 'itemStyle': {'color': '#3b82f6'}},
-                {'name': 'Fasilitas Baru', 'value': ringkasan['baru'], 'itemStyle': {'color': '#8b5cf6'}},
+            # 1. Horizontal Bar Chart (replaces Donut) — NOA per kategori
+            hbar_data = [
+                {'name': 'Tetap', 'value': ringkasan['tetap'], 'color': '#94a3b8'},
+                {'name': 'Membaik', 'value': ringkasan['membaik'], 'color': '#10b981'},
+                {'name': 'Memburuk', 'value': ringkasan['memburuk'], 'color': '#ef4444'},
+                {'name': 'Lunas / Tutup', 'value': ringkasan['lunas'], 'color': '#3b82f6'},
+                {'name': 'Fasilitas Baru', 'value': ringkasan['baru'], 'color': '#8b5cf6'},
             ]
-            
-            # 2. Sankey Diagram (Removed per user request)
-            
-            # 3. Bar Chart (Exposure Finansial per Kategori: Saldo T2 vs Nilai T2)
-            # Filter bar group by kategori
-            bar_categories = ['tetap', 'membaik', 'memburuk', 'baru']
-            bar_saldo = []
-            bar_nilai = []
-            for cat in bar_categories:
+
+            # 2. Faceted Panel Charts — Saldo Akhir (T1 vs T2) & Nilai Wajar (T1 vs T2)
+            bar_categories_list = ['tetap', 'membaik', 'memburuk', 'baru']
+            bar_saldo_t1 = []
+            bar_saldo_t2 = []
+            bar_nilai_t1 = []
+            bar_nilai_t2 = []
+            for cat in bar_categories_list:
                 df_cat = df[df['kategori'] == cat]
-                # Sum floats safely
-                sum_saldo = safe_float(df_cat['saldo_akhir_t2'].sum()) if 'saldo_akhir_t2' in df_cat.columns else 0.0
-                sum_nilai = safe_float(df_cat['nilai_wajar_t2'].sum()) if 'nilai_wajar_t2' in df_cat.columns else 0.0
-                bar_saldo.append(sum_saldo)
-                bar_nilai.append(sum_nilai)
-                
+                bar_saldo_t1.append(safe_float(df_cat['saldo_akhir_t1'].sum()))
+                bar_saldo_t2.append(safe_float(df_cat['saldo_akhir_t2'].sum()))
+                bar_nilai_t1.append(safe_float(df_cat['nilai_wajar_t1'].sum()))
+                bar_nilai_t2.append(safe_float(df_cat['nilai_wajar_t2'].sum()))
+
             echarts_data = {
-                'pie_data': json.dumps(pie_data),
+                'hbar_data': json.dumps(hbar_data),
                 'bar_categories': json.dumps(['Tetap', 'Membaik', 'Memburuk', 'Baru']),
-                'bar_saldo': json.dumps(bar_saldo),
-                'bar_nilai': json.dumps(bar_nilai),
+                'bar_saldo_t1': json.dumps(bar_saldo_t1),
+                'bar_saldo_t2': json.dumps(bar_saldo_t2),
+                'bar_nilai_t1': json.dumps(bar_nilai_t1),
+                'bar_nilai_t2': json.dumps(bar_nilai_t2),
             }
             # --- END ECHARTS DATA ---
 
             if request.GET.get('export') == 'excel':
+                is_syariah = extra_ctx and extra_ctx.get('bank') == 'syariah'
+                sandi_label = 'Kelompok Sandi' if is_syariah else 'Rating Kolek'
+                perubahan_label_text = 'Perubahan Sandi' if is_syariah else 'Perubahan Rating'
+
                 export_cols = {
                     'accnbr': 'No. Rekening',
                     'cifnm': 'Nama Debitur',
-                    'rating_t1_disp': 'Kelompok Sandi T1',
-                    'rating_t2_disp': 'Kelompok Sandi T2',
-                    'kolek_t1_disp': 'Kolek T1',
-                    'kolek_t2_disp': 'Kolek T2',
-                    'nilai_wajar_t2_disp': 'Nilai Wajar T2',
-                    'saldo_t2_disp': 'Saldo Akhir T2',
-                    'perubahan_label': 'Perubahan Rating',
+                    'rating_t1_disp': f'{sandi_label} ({tanggal1_display})',
+                    'rating_t2_disp': f'{sandi_label} ({tanggal2_display})',
+                    'kolek_t1_disp': f'Kolek ({tanggal1_display})',
+                    'kolek_t2_disp': f'Kolek ({tanggal2_display})',
+                    'nilai_wajar_t1_disp': f'Nilai Wajar ({tanggal1_display})',
+                    'nilai_wajar_t2_disp': f'Nilai Wajar ({tanggal2_display})',
+                    'saldo_t1_disp': f'Saldo Akhir ({tanggal1_display})',
+                    'saldo_t2_disp': f'Saldo Akhir ({tanggal2_display})',
+                    'hari_tunggakan_t2': f'Hari Tunggakan ({tanggal2_display})',
+                    'perubahan_label': perubahan_label_text,
                     'kategori': 'Status',
                 }
                 df_export = df[list(export_cols.keys())].copy()
@@ -553,28 +590,41 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
                 'kolek_t1_disp', 'kolek_t2_disp',
                 'saldo_t1_disp', 'saldo_t2_disp',
                 'nilai_wajar_t2_disp',
+                'hari_tunggakan_t2',
                 'perubahan_label', 'kategori',
             ]].to_dict('records')
 
-            paginator = Paginator(hasil_banding, 100)
+            paginator = Paginator(hasil_banding, per_page)
             page_num  = request.GET.get('page', 1)
             page_obj  = paginator.get_page(page_num)
 
     ctx = {
-        'tanggal1'      : tanggal1,
-        'tanggal2'      : tanggal2,
-        'tanggal_list'  : tanggal_list,
-        'hasil_banding' : hasil_banding,
-        'page_obj'      : page_obj,
-        'ringkasan'     : ringkasan,
-        'filter_kat'    : filter_kat,
-        'filter_rating' : filter_rating,
-        'perubahan_list': perubahan_list,
+        'tanggal1'          : tanggal1,
+        'tanggal2'          : tanggal2,
+        'tanggal1_display'  : tanggal1_display,
+        'tanggal2_display'  : tanggal2_display,
+        'tanggal_list'      : tanggal_list,
+        'hasil_banding'     : hasil_banding,
+        'page_obj'          : page_obj,
+        'ringkasan'         : ringkasan,
+        'filter_kat'        : filter_kat,
+        'filter_rating'     : filter_rating,
+        'per_page'          : per_page,
+        'perubahan_list'    : perubahan_list,
+        'cabang'            : cabang,
+        'kcp'               : kcp,
     }
-    
+
+    show_syariah = extra_ctx.get('bank') == 'syariah' if extra_ctx else False
+    ctx.update(_get_cabang_context(show_syariah=show_syariah))
+
     if hasil_banding is not None and 'echarts_data' in locals():
         ctx.update(echarts_data)
-        
+    if hasil_banding is not None and 'summary_membaik' in locals():
+        ctx['summary_membaik'] = json.dumps(summary_membaik)
+        ctx['summary_tetap'] = json.dumps(summary_tetap)
+        ctx['summary_memburuk'] = json.dumps(summary_memburuk)
+
     if extra_ctx:
         ctx.update(extra_ctx)
     return render(request, template_name, ctx)

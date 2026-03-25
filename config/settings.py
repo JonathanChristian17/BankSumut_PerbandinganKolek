@@ -128,7 +128,9 @@ USE_TZ = True
 # LOGIN_URL → URL yang dituju saat user belum login dan mencoba akses halaman yang diproteksi.
 # Kita arahkan ke halaman login bawaan Django admin (/admin/login/)
 # sehingga tidak perlu membuat halaman login terpisah.
-LOGIN_URL = '/admin/login/'
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/login/'
 
 
 # Static files (CSS, JavaScript, Images)
@@ -143,3 +145,30 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Default primary key field type
 # https://docs.djangoproject.com/en/6.0/ref/settings/#default-auto-field
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# --- SECURITY HARDENING (OWASP TOP 10) ---
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+# Session & Cookie Security
+SESSION_COOKIE_HTTPONLY = True        # Prevent JS access to session cookie
+SESSION_COOKIE_AGE = 1800             # Sessions expire after 30 minutes of inactivity
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True # Clean session on browser close
+CSRF_COOKIE_HTTPONLY = False          # Usually false so JS can read CSRF token, but keep it secure
+CSRF_COOKIE_SECURE = not DEBUG        # Only send over HTTPS if in prod
+SESSION_COOKIE_SECURE = not DEBUG     # Only send over HTTPS if in prod
+SESSION_COOKIE_SAMESITE = 'Lax'       # Protection against CSRF
+CSRF_COOKIE_SAMESITE = 'Lax'
+
+# Security Headers (Production only)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True        # Force HTTPS
+    SECURE_HSTS_SECONDS = 31536000     # 1 year HSTS
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True # Prevent MIME sniffing
+    SECURE_BROWSER_XSS_FILTER = True   # Enable browser XSS filter
+    X_FRAME_OPTIONS = 'DENY'           # Prevent Clickjacking
+    SECURE_REFERRER_POLICY = 'same-origin'

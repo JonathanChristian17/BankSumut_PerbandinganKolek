@@ -67,11 +67,173 @@
 
     <div class="nav-right">
         <div class="realtime-clock" id="realtime-clock">--:--:--</div>
-        <div class="user-avatar">JO</div>
+        <div class="user-avatar" title="User: {{ user.username }}">{{ user.username|slice:":2"|upper }}</div>
+        
+        <a href="javascript:void(0);" onclick="showLogoutModal()" class="nav-logout-btn" style="display: flex; align-items: center; gap: 8px; color: #fff; background: rgba(255,255,255,0.1); padding: 5px 12px; border-radius: 6px; text-decoration: none; border: 1px solid rgba(255,255,255,0.2); margin-left: 10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                <polyline points="16 17 21 12 16 7"></polyline>
+                <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span style="font-size: 13px; font-weight: 600;">Keluar</span>
+        </a>
     </div>
 </nav>
 
+<!-- LOGOUT CONFIRMATION MODAL -->
+<div id="logoutModal" class="modal-overlay">
+    <div class="modal-card">
+        <button class="modal-close" onclick="hideLogoutModal()">&times;</button>
+        <div class="modal-content">
+            <h2 class="modal-title">You are attempting to log out of Bank Sumut Kolektibilitas.</h2>
+            <h3 class="modal-subtitle">Are you Sure?</h3>
+            <p class="modal-user-info">Logged in as <strong>{{ user.username }}</strong></p>
+            
+            <div class="modal-actions">
+                <a href="{% url 'logout' %}" class="btn-logout-confirm">LOG OUT</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Modal Styles */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(15, 23, 42, 0.7);
+        backdrop-filter: blur(4px);
+        display: none; /* Hidden by default */
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    .modal-card {
+        background: white;
+        width: 100%;
+        max-width: 480px;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+        position: relative;
+        text-align: center;
+        margin: 20px;
+        animation: slideUp 0.3s ease-out;
+    }
+
+    .modal-close {
+        position: absolute;
+        top: 15px;
+        right: 20px;
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #64748b;
+        cursor: pointer;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+        color: #1e293b;
+    }
+
+    .modal-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+
+    .modal-subtitle {
+        font-size: 16px;
+        font-weight: 500;
+        color: #64748b;
+        margin-bottom: 24px;
+    }
+
+    .modal-user-info {
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 32px;
+    }
+
+    .btn-logout-confirm {
+        display: block;
+        width: 100%;
+        background: #1e3a8a; /* Default to blue, will change to red for the button itself if following reference strictly but user asked for "merah" specifically */
+        background: #064e3b; /* Reference image look */
+        /* Overriding with user's specific request: "warna button merah" */
+        background: #dc2626; 
+        color: white;
+        text-decoration: none;
+        padding: 14px;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 14px;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-logout-confirm:hover {
+        background: #991b1b;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Existing Avatar & Button hover */
+    .user-avatar {
+        width: 34px;
+        height: 34px;
+        background: #f59e0b;
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 13px;
+        border: 2px solid rgba(255,255,255,0.3);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .nav-logout-btn {
+        transition: all 0.3s ease !important;
+    }
+    .nav-logout-btn:hover {
+        background: #ef4444 !important;
+        border-color: #ef4444 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+    }
+</style>
+
 <script>
+    function showLogoutModal() {
+        document.getElementById('logoutModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden'; // Prevent scroll
+    }
+
+    function hideLogoutModal() {
+        document.getElementById('logoutModal').style.display = 'none';
+        document.body.style.overflow = 'auto'; // Restore scroll
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Toggle dropdown saat tombol diklik
         const dropbtns = document.querySelectorAll('.nav-dropbtn');
@@ -92,12 +254,26 @@
             });
         });
 
-        // Tutup dropdown saat klik di luar area navbar 
+        // Tutup dropdown & modal saat klik di luar area
         window.addEventListener('click', function(event) {
+            // Close dropdowns
             if (!event.target.closest('.nav-dropdown')) {
                 document.querySelectorAll('.nav-dropdown.show').forEach(dropdown => {
                     dropdown.classList.remove('show');
                 });
+            }
+            
+            // Close modal if clicking overlay
+            const modal = document.getElementById('logoutModal');
+            if (event.target === modal) {
+                hideLogoutModal();
+            }
+        });
+
+        // ESC key to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                hideLogoutModal();
             }
         });
     });
