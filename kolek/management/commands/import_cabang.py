@@ -59,13 +59,7 @@ class Command(BaseCommand):
             self.stderr.write(self.style.ERROR(f'Gagal baca file: {e}'))
             return
 
-        # Daftar ID baris (kolom NO) yang didefinisikan sebagai Kantor Cabang (KC)
-        # Sesuai list dari user:
-        KC_INDICES = [
-            2, 25, 32, 46, 52, 60, 68, 76, 83, 
-            88, 94, 96, 100, 106, 111, 116, 123, 132, 141, 145, 149, 153, 156, 161, 167, 175, 176, 177, 185, 189, 196, 199, 203, 208, 212, 213,
-            215, 221, 223, 227, 228, 231
-        ]
+
         
         # Cari kolom yang mirip
         col_map = {}
@@ -119,7 +113,7 @@ class Command(BaseCommand):
                 continue
 
             # Cek apakah baris ini adalah Kantor Cabang (KC)
-            if row_no in KC_INDICES:
+            if jenis in KC_TYPES:
                 kc_obj, created = KantorCabang.objects.update_or_create(
                     kode=kode,
                     defaults={
