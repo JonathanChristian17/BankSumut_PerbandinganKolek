@@ -362,6 +362,8 @@ body {
 
 .table-wrap {
     overflow-x: auto;
+    overflow-y: auto;
+    max-height: 55vh;
 }
 
 table {
@@ -377,6 +379,9 @@ th {
     text-align: left;
     white-space: nowrap;
     font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 td {
