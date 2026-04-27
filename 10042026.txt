@@ -1,0 +1,59 @@
+UPDATE LOG - 10 APRIL 2026
+Proyek: SIMOLEK (Sistem Monitoring Kolektibilitas) Bank Sumut
+
+=======================================================
+RINGKASAN PERUBAHAN & FITUR BARU:
+=======================================================
+1. Standardisasi Tipografi (Font System): Mengganti font lama (Inter) ke sistem dua font yang lebih profesional dan modern — Montserrat untuk elemen judul/header, dan Poppins untuk konten/body di seluruh halaman aplikasi.
+2. Perbaikan CSS Header Tabel: Mengubah perilaku teks header tabel dari "tidak boleh wrap" (nowrap) menjadi "boleh turun ke baris baru" (normal wrap) agar tabel tidak memaksa pengguna terlalu banyak scroll ke arah horizontal.
+3. Perbaikan Pagination Template: Memperbaiki bug kritis di mana template tag Django seperti {{ num }} dan {{ page_obj.paginator.count|intcomma }} ditampilkan sebagai teks mentah (literal) di halaman Bandingkan Kolek Konvensional, akibat tag yang terpotong ke baris baru dan kerusakan struktur HTML.
+
+=======================================================
+DAFTAR FILE PROGRAM YANG DIMODIFIKASI:
+=======================================================
+
+1. d:\projectbanksumut\kolektibilitas app\kolek\static\kolek\css\bandingkan_kolek.css
+   - Menambahkan blok rule font Montserrat untuk h1-h6, th, .navbar-brand, dan .header-title.
+   - Mengubah font-family body dari Inter ke Poppins.
+   - Mengubah properti `white-space` pada elemen `th` dari `nowrap` menjadi `normal`.
+   - Menambahkan `vertical-align: middle` pada `th` agar teks yang turun baris tetap rata tengah secara vertikal.
+
+2. d:\projectbanksumut\kolektibilitas app\kolek\static\kolek\css\pergerakan_kolek.css
+   - Menambahkan blok rule font Montserrat untuk h1-h6, th, .navbar-brand, dan .header-title.
+   - Mengubah font-family body dari Inter ke Poppins.
+   - Mengubah properti `white-space` pada elemen `th` dari `nowrap` menjadi `normal`.
+   - Menambahkan `vertical-align: middle` pada `th` agar teks yang turun baris tetap rata tengah secara vertikal.
+
+3. d:\projectbanksumut\kolektibilitas app\kolek\static\kolek\css\upload_kolek.css
+   - Menambahkan blok rule font Montserrat untuk h1-h6, th, .navbar-brand, dan .header-title.
+   - Mengubah font-family body dari Inter ke Poppins.
+
+4. d:\projectbanksumut\kolektibilitas app\kolek\static\kolek\css\navbar.css
+   - Mengubah font-family elemen navbar dari Inter ke Poppins.
+
+5. d:\projectbanksumut\kolektibilitas app\kolek\templates\kolek\login.html
+   - Memperbarui link Google Fonts untuk memuat Montserrat dan Poppins secara bersamaan.
+   - Mengubah font body menjadi Poppins dan menambahkan rule Montserrat untuk semua elemen heading.
+
+6. d:\projectbanksumut\kolektibilitas app\kolek\templates\kolek\otp_validation.html
+   - Memperbarui link Google Fonts untuk memuat Montserrat dan Poppins.
+   - Menyesuaikan font body dan heading.
+
+7. d:\projectbanksumut\kolektibilitas app\kolek\templates\kolek\syariah\bandingkan.html
+   - Memperbarui link Google Fonts untuk memuat Montserrat dan Poppins.
+   - Menyesuaikan deklarasi font inline pada elemen body dan heading.
+
+8. d:\projectbanksumut\kolektibilitas app\kolek\templates\kolek\konvensional\bandingkan.html
+   - Memperbarui link Google Fonts untuk memuat Montserrat dan Poppins.
+   - Memperbaiki bug KRITIS pada blok pagination: template tag {{ num }} yang terpecah ke baris baru menyebabkan teks literal tampil di UI.
+   - Memperbaiki bug KRITIS pada teks info baris: {{ page_obj.paginator.count|intcomma }} yang terpecah ke baris baru menyebabkan teks literal tampil di UI.
+   - Memperbaiki struktur HTML pagination yang rusak: tag `<a` untuk tombol "Next ›" hilang sehingga atribut href tampil sebagai teks biasa.
+   - Membersihkan duplikasi link "Awal" dan "Prev" yang muncul akibat proses perbaikan sebelumnya.
+   - Merapikan seluruh blok pagination menjadi satu struktur HTML yang bersih dan konsisten.
+
+=======================================================
+CATATAN TEKNIS:
+=======================================================
+- Bug template tag terpecah ({{ \n variable }}) adalah bug yang tidak terlihat di editor teks biasa namun menyebabkan Django Template Engine tidak mengenali tag tersebut dan menampilkan string apa adanya ke browser.
+- Perubahan font tidak memerlukan migrasi database. Cukup lakukan Hard Refresh (Ctrl+F5) di browser untuk memuat ulang file CSS yang telah diperbarui.
+- Seluruh perubahan CSS bersifat global (berlaku ke semua elemen yang sesuai selector-nya) sehingga tidak perlu mengubah masing-masing elemen secara individual.

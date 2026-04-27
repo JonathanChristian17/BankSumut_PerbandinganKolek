@@ -31,24 +31,26 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ksk#25ubz%m^+x(y5_5+4
 # ─────────────────────────────────────────────────────────────
 # KONFIGURASI CAPTCHA (django-simple-captcha)
 # ─────────────────────────────────────────────────────────────
-CAPTCHA_LENGTH = 7             # Jumlah karakter acak yang ditampilkan (makin banyak makin aman)
+CAPTCHA_LENGTH = 7             # Jumlah karakter acak yang ditampilkan
 CAPTCHA_IMAGE_SIZE = (220, 60) # Ukuran gambar captcha dalam piksel (lebar, tinggi)
 CAPTCHA_LETTER_ROTATION = (-35, 35)  # Sudut rotasi tiap huruf agar susah dibaca bot
 CAPTCHA_BACKGROUND_COLOR = '#f8fafc'  # Warna latar belakang gambar
 CAPTCHA_FOREGROUND_COLOR = '#1e3a8a'  # Warna teks (biru Bank Sumut)
-CAPTCHA_NOISE_FUNCTIONS = (    # Fungsi pembuat kebisingan visual agar makin susah dibaca AI
+CAPTCHA_NOISE_FUNCTIONS = (    # Fungsi pembuat kebisingan visual
     'captcha.helpers.noise_arcs',  # Tambah busur garis
     'captcha.helpers.noise_dots',  # Tambah titik-titik
 )
-CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'  # Jenis: karakter acak huruf+angka
-CAPTCHA_TIMEOUT = 5            # Masa berlaku kode (menit), setelah habis harus refresh
+CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'  # Jenis: karakter acak
+CAPTCHA_TIMEOUT = 5            # Masa berlaku kode (menit)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG bernilai True bila di laptop, dan wajib diubah menjadi False di .env server.
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 # ALLOWED_HOSTS berisi domain/IP dari server, dipisahkan karakter koma.
-allowed_hosts_str = os.environ.get('ALLOWED_HOSTS', '127.0.0.1,localhost')
+# Nilai default sudah mencakup IP dan domain server production.
+# Di server, nilai ini di-override oleh .env (lihat file .env di server).
+allowed_hosts_str = os.environ.get('ALLOWED_HOSTS', '192.168.3.18,127.0.0.1,localhost,simolek.banksumut.co.id')
 ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_str.split(',') if host.strip()]
 
 # Application definition
@@ -63,9 +65,9 @@ INSTALLED_APPS = [
     'django.contrib.humanize',
     'rest_framework',
     'kolek',
-    'captcha',          # django-simple-captcha: generator teks gambar anti-bot offline
-    'django_otp',
-    'django_otp.plugins.otp_totp',
+    'captcha',                         # django-simple-captcha: CAPTCHA teks gambar offline
+    'django_otp',                      # OTP authentication
+    'django_otp.plugins.otp_totp',     # TOTP plugin
 ]
 
 MIDDLEWARE = [
@@ -74,7 +76,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django_otp.middleware.OTPMiddleware',
+    'django_otp.middleware.OTPMiddleware',      # OTP middleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -145,8 +147,6 @@ USE_I18N = True
 USE_TZ = True
 
 # LOGIN_URL → URL yang dituju saat user belum login dan mencoba akses halaman yang diproteksi.
-# Kita arahkan ke halaman login bawaan Django admin (/admin/login/)
-# sehingga tidak perlu membuat halaman login terpisah.
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 LOGOUT_REDIRECT_URL = '/login/'
@@ -175,7 +175,7 @@ AUTHENTICATION_BACKENDS = [
 SESSION_COOKIE_HTTPONLY = True        # Prevent JS access to session cookie
 SESSION_COOKIE_AGE = 1800             # Sessions expire after 30 minutes of inactivity
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True # Clean session on browser close
-CSRF_COOKIE_HTTPONLY = False          # Usually false so JS can read CSRF token, but keep it secure
+CSRF_COOKIE_HTTPONLY = False          # Usually false so JS can read CSRF token
 CSRF_COOKIE_SECURE = not DEBUG        # Only send over HTTPS if in prod
 SESSION_COOKIE_SECURE = not DEBUG     # Only send over HTTPS if in prod
 SESSION_COOKIE_SAMESITE = 'Lax'       # Protection against CSRF
@@ -183,11 +183,27 @@ CSRF_COOKIE_SAMESITE = 'Lax'
 
 # Security Headers (Production only)
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True        # Force HTTPS
-    SECURE_HSTS_SECONDS = 31536000     # 1 year HSTS
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True # Prevent MIME sniffing
-    SECURE_BROWSER_XSS_FILTER = True   # Enable browser XSS filter
-    X_FRAME_OPTIONS = 'DENY'           # Prevent Clickjacking
+    # NONAKTIFKAN redirect HTTPS karena server menggunakan HTTP biasa (Nginx tanpa SSL).
+    # Jika diset True tanpa HTTPS di Nginx, Django akan terus redirect HTTP→HTTPS
+    # secara loop yang menyebabkan 502 Bad Gateway.
+    SECURE_SSL_REDIRECT = False
+    # SECURE_PROXY_SSL_HEADER tetap disiapkan jika suatu saat HTTPS diaktifkan:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = 0                                             # Nonaktif selama HTTP
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+    SECURE_CONTENT_TYPE_NOSNIFF = True                                  # Prevent MIME sniffing
+    SECURE_BROWSER_XSS_FILTER = True                                    # Enable browser XSS filter
+    X_FRAME_OPTIONS = 'DENY'                                            # Prevent Clickjacking
     SECURE_REFERRER_POLICY = 'same-origin'
+
+# CSRF Trusted Origins — wajib untuk Django 4.x+ agar POST request (login, upload CSV)
+# tidak ditolak 403 Forbidden. Sesuaikan dengan semua alamat yang ada di ALLOWED_HOSTS.
+CSRF_TRUSTED_ORIGINS = [
+    'http://127.0.0.1',
+    'http://localhost',
+    'http://192.168.3.18',                      # Akses via Nginx port 80
+    'http://192.168.3.18:8000',                 # Akses langsung Gunicorn (testing)
+    'http://simolek.banksumut.co.id',           # Domain production (HTTP)
+    'https://simolek.banksumut.co.id',          # Domain production (HTTPS, jika aktif)
+]

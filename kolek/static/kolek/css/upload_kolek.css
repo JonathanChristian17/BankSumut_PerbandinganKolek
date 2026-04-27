@@ -21,8 +21,12 @@
     padding: 0;
 }
 
+h1, h2, h3, h4, h5, h6, th, .navbar-brand, .header-title {
+    font-family: 'Montserrat', sans-serif !important;
+}
+
 body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Poppins', system-ui, -apple-system, sans-serif;
     background: var(--bg-color);
     color: var(--text-main);
     line-height: 1.5;
@@ -65,7 +69,7 @@ body {
     font-weight: 700;
     margin: 0;
     letter-spacing: 0.5px;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Poppins', sans-serif;
     color: #ffffff;
 }
 

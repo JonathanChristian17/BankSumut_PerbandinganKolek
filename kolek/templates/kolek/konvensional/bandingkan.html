@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Perbandingan Kolek — Bank Konvensional</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{% static 'kolek/css/navbar.css' %}">
     <link rel="stylesheet" href="{% static 'kolek/css/bandingkan_kolek.css' %}?v=1.2">
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
@@ -278,7 +278,7 @@
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
             <h3 style="margin:0; font-size:18px; font-weight:600; color:#1e293b;">Visualisasi Data Terfilter</h3>
             <select id="chart-filter" class="btn-outline"
-                style="padding:6px 12px; border-radius:6px; background:#fff; outline:none; font-family:Inter; font-size:14px; cursor:pointer;">
+                style="padding:6px 12px; border-radius:6px; background:#fff; outline:none; font-family:Poppins; font-size:14px; cursor:pointer;">
                 <option value="semua">Tampilkan Semua Status</option>
                 <option value="tanpatetap">Sembunyikan Status 'Tetap'</option>
                 <option value="hanyaberubah">Hanya Membaik & Memburuk</option>
@@ -412,34 +412,25 @@
                 </table>
                 <div class="pagination">
                     {% if page_obj.has_previous %}
-                    <a
-                        href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page=1">«
-                        Awal</a>
-                    <a
-                        href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.previous_page_number }}">‹
-                        Prev</a>
+                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page=1">« Awal</a>
+                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.previous_page_number }}">‹ Prev</a>
                     {% endif %}
                     {% for num in page_obj.paginator.page_range %}
-                    {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %} {% if num == page_obj.number %} <span class="current">{{ num }}</span>
+                    {% if num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                        {% if num == page_obj.number %}
+                        <span class="current">{{ num }}</span>
                         {% else %}
-                        <a
-                            href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ num }}">{{
-                            num }}</a>
+                        <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ num }}">{{ num }}</a>
                         {% endif %}
-                        {% endif %}
-                        {% endfor %}
-                        {% if page_obj.has_next %}
-                        <a
-                            href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.next_page_number }}">Next
-                            ›</a>
-                        <a
-                            href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.paginator.num_pages }}">Akhir
-                            »</a>
-                        {% endif %}
+                    {% endif %}
+                    {% endfor %}
+                    {% if page_obj.has_next %}
+                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.next_page_number }}">Next ›</a>
+                    <a href="?tanggal1={{ tanggal1 }}&tanggal2={{ tanggal2 }}&kategori={{ filter_kat }}&filter_rating={{ filter_rating }}&cabang={{ cabang }}&kcp={{ kcp }}&per_page={{ per_page }}&page={{ page_obj.paginator.num_pages }}">Akhir »</a>
+                    {% endif %}
                 </div>
                 <div style="flex-basis:100%;text-align:center;color:#64748b;font-size:13px;margin-top:12px;">
-                    Menampilkan baris {{ page_obj.start_index }}–{{ page_obj.end_index }} dari total {{
-                    page_obj.paginator.count|intcomma }} data
+                    Menampilkan baris {{ page_obj.start_index }}–{{ page_obj.end_index }} dari total {{ page_obj.paginator.count|intcomma }} data
                 </div>
         {% else %}
         <div class="empty">Tidak ada data untuk perbandingan ini.</div>

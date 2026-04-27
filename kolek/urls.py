@@ -13,6 +13,11 @@ urlpatterns = [
     path('upload/', RedirectView.as_view(url='/kolek/konvensional/upload/', permanent=False)),
     path('bandingkan/', RedirectView.as_view(url='/kolek/konvensional/bandingkan/', permanent=False)),
 
+    # ── Security (OTP — HIBERNASI) ─────────────────────────────
+    # OTP dibekukan sementara. Aktifkan saat sistem multi-user siap.
+    # CARA AKTIFKAN: hapus tanda '#' di baris di bawah ini.
+    # path('verifikasi/', views.otp_verifikasi_view, name='otp_verifikasi'),
+
 
     # ── Bank Konvensional ──────────────────────────────────────
     path('konvensional/pergerakan/',  views.kolek_konvensional_view,       name='konvensional_pergerakan'),

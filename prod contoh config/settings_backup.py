@@ -28,21 +28,6 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # SECRET_KEY ditarik dari file .env agar tidak bocor di internet.
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-ksk#25ubz%m^+x(y5_5+41mj)vqxx9lvv2_uhpa&z%=#@l46y3')
 
-# ─────────────────────────────────────────────────────────────
-# KONFIGURASI CAPTCHA (django-simple-captcha)
-# ─────────────────────────────────────────────────────────────
-CAPTCHA_LENGTH = 7             # Jumlah karakter acak yang ditampilkan (makin banyak makin aman)
-CAPTCHA_IMAGE_SIZE = (220, 60) # Ukuran gambar captcha dalam piksel (lebar, tinggi)
-CAPTCHA_LETTER_ROTATION = (-35, 35)  # Sudut rotasi tiap huruf agar susah dibaca bot
-CAPTCHA_BACKGROUND_COLOR = '#f8fafc'  # Warna latar belakang gambar
-CAPTCHA_FOREGROUND_COLOR = '#1e3a8a'  # Warna teks (biru Bank Sumut)
-CAPTCHA_NOISE_FUNCTIONS = (    # Fungsi pembuat kebisingan visual agar makin susah dibaca AI
-    'captcha.helpers.noise_arcs',  # Tambah busur garis
-    'captcha.helpers.noise_dots',  # Tambah titik-titik
-)
-CAPTCHA_CHALLENGE_FUNCT = 'captcha.helpers.random_char_challenge'  # Jenis: karakter acak huruf+angka
-CAPTCHA_TIMEOUT = 5            # Masa berlaku kode (menit), setelah habis harus refresh
-
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG bernilai True bila di laptop, dan wajib diubah menjadi False di .env server.
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
@@ -62,10 +47,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'rest_framework',
-    'kolek',
-    'captcha',          # django-simple-captcha: generator teks gambar anti-bot offline
-    'django_otp',
-    'django_otp.plugins.otp_totp',
+    'kolek'
 ]
 
 MIDDLEWARE = [
@@ -74,7 +56,6 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django_otp.middleware.OTPMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -191,3 +172,4 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True   # Enable browser XSS filter
     X_FRAME_OPTIONS = 'DENY'           # Prevent Clickjacking
     SECURE_REFERRER_POLICY = 'same-origin'
+

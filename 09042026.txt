@@ -1,0 +1,40 @@
+UPDATE LOG - 09 APRIL 2026
+Proyek: SIMOLEK (Sistem Monitoring Kolektibilitas) Bank Sumut
+
+=======================================================
+RINGKASAN PERUBAHAN & FITUR BARU:
+=======================================================
+1. Penghapusan Internet Dependency: Menghapus total penggunaan Google reCAPTCHA dari sistem untuk menjamin aksesibilitas penuh di lingkungan Intranet.
+2. Sistem Keamanan Berlapis (Offline): Mengimplementasikan dua lapis keamanan pada halaman login, yakni "Honeypot Trap" untuk bot sederhana dan "Offline Text Image Captcha" untuk bot mutakhir.
+3. Redesain Full UI Login: Mengubah wajah halaman login dengan sistem 2-Panel secara profesional murni menggunakan CSS, lengkap dengan logo Bank Sumut asli dan branding sistem "SIMOLEK".
+4. Kemudahan Migrasi (Deployment): Membersihkan dependency list dan memberikan kepastian instalasi bebas-error untuk di PC klien yang baru.
+
+=======================================================
+DAFTAR FILE PROGRAM YANG DIMODIFIKASI:
+=======================================================
+
+1. d:\projectbanksumut\kolektibilitas app\kolek\templates\kolek\login.html
+   - Perombakan total UI secara drastis (layout sisi menyisi 2 panel, pewarnaan dark blue gradient).
+   - Menyematkan Logo Bank Sumut asli dan teks "SIMOLEK".
+   - Menghidupkan tombol "Refresh Captcha" dengan JavaScript fetch API untuk mengganti gambar tanpa memuat ulang (/reload) seluruh halaman.
+   - Mengatur penempatan field form, spacing input captcha agar sejajar rapi dengan tombol pembaruannya.
+
+2. d:\projectbanksumut\kolektibilitas app\kolek\forms.py
+   - Memodifikasi form utama menjadi "HoneypotLoginForm" sebagai standard otentikasinya.
+   - Menambahkan field tersembunyi `website_url` (Honeypot Trap).
+   - Menambahkan variabel pengikat keamanan lokal `captcha = CaptchaField()`.
+
+3. d:\projectbanksumut\kolektibilitas app\config\settings.py
+   - Menghapus Public dan Private Key dari Google reCAPTCHA karena sudah tidak berguna.
+   - Mendaftarkan `'captcha'` ke dalam list `INSTALLED_APPS` project Django.
+   - Menciptakan blok kustomisasi "KONFIGURASI CAPTCHA", untuk mengatur tingkat keamanan seperti panjang gambar menjadi 7 karakter, pewarnaan tulisan agar senada dengan UI biru kolektibilitas, batas masa berlaku kode (5 menit), dan manipulasi sudut kemiringingan tulisan gambar (noise/arcs/dots).
+
+4. d:\projectbanksumut\kolektibilitas app\config\urls.py
+   - Membuka Routing pengirim gambar internal (localhost generator) dengan menambahkan URL `path('captcha/', include('captcha.urls'))`. 
+
+5. d:\projectbanksumut\kolektibilitas app\requirements.txt
+   - Menghapus komponen tak terpakai, memberinya struktur catatan instalasi yang rapi.
+   - Menambahkan modul vital yakni `django-simple-captcha` (v0.6.3) serta software manipulasi citra `Pillow` (v12.2.0).
+
+6. Perubahan Database (Melalui CLI)
+   - Mengeksekusi command `python manage.py migrate` yang berakibat pada terciptanya tabel sistem pengujian lokal bernama `captcha_captchastore` pada database PostgreSQL untuk menghindari Replay Attack.

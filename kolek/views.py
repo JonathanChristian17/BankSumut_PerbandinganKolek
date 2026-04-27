@@ -16,7 +16,83 @@ import pandas as pd
 import json
 import io
 import re
+# ═══════════════════════════════════════════════════════════════
+# ██ ZONA HIBERNASI OTP — JANGAN HAPUS BLOK INI ██
+# ═══════════════════════════════════════════════════════════════
+# Blok di bawah ini adalah KODE OTP LENGKAP yang sudah berfungsi.
+# Dibekukan sementara karena sistem masih berjalan dengan 1 user.
+# CARA MENGAKTIFKAN KEMBALI: hilangkan tanda '#' pada semua baris
+# di bawah ini, dan buka kembali path 'verifikasi/' di kolek/urls.py.
+# ─────────────────────────────────────────────────────────────
+# from functools import wraps
+# from django_otp.plugins.otp_totp.models import TOTPDevice
+# from django_otp import login as otp_login
+# import qrcode
+# import base64
+#
+# # DECORATOR CUSTOM UNTUK OTP
+# def require_otp(view_func):
+#     """
+#     Decorator tambahan setelah @login_required.
+#     Jika user sudah login tapi belum lewati verifikasi OTP, lempar ke halaman OTP.
+#     """
+#     @wraps(view_func)
+#     def _wrapped_view(request, *args, **kwargs):
+#         user = request.user
+#         if hasattr(user, 'is_authenticated') and user.is_authenticated:
+#             if hasattr(user, 'is_verified') and not user.is_verified():
+#                 return redirect('kolek:otp_verifikasi')
+#         return view_func(request, *args, **kwargs)
+#     return _wrapped_view
+#
+# # VIEW SETUP / VALIDASI OTP
+# @login_required
+# def otp_verifikasi_view(request):
+#     user = request.user
+#     if user.is_verified():
+#         return redirect('kolek:konvensional_pergerakan')
+#     device = TOTPDevice.objects.filter(user=user, confirmed=True).first()
+#     msg_error = ""
+#     if not device:
+#         unconfirmed_device = TOTPDevice.objects.filter(user=user, confirmed=False).first()
+#         if not unconfirmed_device:
+#             unconfirmed_device = TOTPDevice.objects.create(user=user, confirmed=False)
+#         url = unconfirmed_device.config_url
+#         img = qrcode.make(url)
+#         buf = io.BytesIO()
+#         img.save(buf)
+#         qr_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+#         if request.method == "POST":
+#             token = request.POST.get('token')
+#             if unconfirmed_device.verify_token(token):
+#                 unconfirmed_device.confirmed = True
+#                 unconfirmed_device.save()
+#                 otp_login(request, unconfirmed_device)
+#                 return redirect('kolek:konvensional_pergerakan')
+#             else:
+#                 msg_error = "Kode tidak sesuai. Coba lagi."
+#         return render(request, 'kolek/otp_validation.html', {'qr_b64': qr_b64, 'msg_error': msg_error})
+#     else:
+#         if request.method == "POST":
+#             token = request.POST.get('token')
+#             if device.verify_token(token):
+#                 otp_login(request, device)
+#                 return redirect('kolek:konvensional_pergerakan')
+#             else:
+#                 msg_error = "Kode tidak sesuai atau sudah kadaluarsa. Coba lagi."
+#         return render(request, 'kolek/otp_validation.html', {'msg_error': msg_error})
+# ═══════════════════════════════════════════════════════════════
+# ██ ZONA AKTIF: Dekorator passthrough pengganti sementara ██
+# Saat OTP dibekukan, @require_otp langsung meloloskan user.
+# ═══════════════════════════════════════════════════════════════
+from functools import wraps
 
+def require_otp(view_func):
+    """Passthrough sementara — OTP sedang dihibernasi. Aktifkan kembali blok di atas untuk produksi multi-user."""
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
 # ─────────────────────────────────────────────────────────────
 # KOLOM MAP
@@ -714,6 +790,7 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
 # ══════════════════════════════════════════════════════════════
 
 @login_required
+@require_otp
 def kolek_konvensional_view(request):
     data        = PergerakanKolekKonvensional.objects.all()
     rating_list = ['1', '2A', '2B', '2C', '3', '4', '5']
@@ -784,6 +861,7 @@ def kolek_konvensional_view(request):
 
 
 @login_required
+@require_otp
 def upload_konvensional_view(request):
     return _proses_upload(
         request,
@@ -796,6 +874,7 @@ def upload_konvensional_view(request):
 
 
 @login_required
+@require_otp
 def bandingkan_konvensional_view(request):
     return _bandingkan(
         request,
@@ -814,6 +893,7 @@ def bandingkan_konvensional_view(request):
 # ══════════════════════════════════════════════════════════════
 
 @login_required
+@require_otp
 def kolek_syariah_view(request):
     data        = PergerakanKolekSyariah.objects.all()
     rating_list = ['1', '2A', '2B', '2C', '3', '4', '5']
@@ -883,6 +963,7 @@ def kolek_syariah_view(request):
 
 
 @login_required
+@require_otp
 def upload_syariah_view(request):
     return _proses_upload(
         request,
@@ -895,6 +976,7 @@ def upload_syariah_view(request):
 
 
 @login_required
+@require_otp
 def bandingkan_syariah_view(request):
     return _bandingkan(
         request,

@@ -5,174 +5,406 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — Kolektibilitas Monitoring Bank Sumut</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary-blue: #1e3a8a;
-            --secondary-blue: #3b82f6;
-            --accent-orange: #f59e0b;
-            --text-dark: #1f2937;
-            --bg-light: #f3f4f6;
+        * { box-sizing: border-box; margin:0; padding:0; }
+
+        .h-trap { display:none !important; position:absolute; left:-9999px; }
+
+        h1, h2, h3, h4, h5, h6, th, .navbar-brand, .header-title {
+            font-family: 'Montserrat', sans-serif !important;
         }
 
-        * { box-sizing: border-box; }
-
         body {
-            margin: 0;
-            padding: 0;
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
-            height: 100vh;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(145deg, #0c1a3c 0%, #1e3a8a 55%, #1e40af 100%);
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+
+        /* ══ Wrapper dua kolom ══ */
+        .wrapper {
+            display: flex;
+            width: 900px;
+            max-width: 98vw;
+            min-height: 520px;
+            border-radius: 28px;
+            overflow: hidden;
+            box-shadow: 0 24px 64px rgba(15,23,42,0.22);
+        }
+
+        /* ── Panel kiri: Branding ── */
+        .panel-left {
+            width: 42%;
+            background: linear-gradient(160deg, #0f2d7a 0%, #1e4db7 60%, #3b82f6 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 48px 36px;
             position: relative;
             overflow: hidden;
+            flex-shrink: 0;
         }
-
-        .circle {
+        .panel-left::before {
+            content: '';
+            position: absolute;
+            width: 340px; height: 340px;
+            border-radius: 50%;
+            border: 50px solid rgba(251, 146, 60, 0.18); /* orange */
+            top: -120px; right: -120px;
+        }
+        .panel-left::after {
+            content: '';
+            position: absolute;
+            width: 240px; height: 240px;
+            border-radius: 50%;
+            border: 40px solid rgba(251, 146, 60, 0.12); /* orange redup */
+            bottom: -80px; left: -60px;
+        }
+        /* Lingkaran oranye kecil tambahan */
+        .panel-left .orb {
             position: absolute;
             border-radius: 50%;
-            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), transparent);
-            z-index: 0;
+            pointer-events: none;
         }
-        .c1 { width: 400px; height: 400px; top: -100px; right: -100px; }
-        .c2 { width: 300px; height: 300px; bottom: -50px; left: -50px; }
-
-        .login-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 48px 40px;
-            border-radius: 24px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        .panel-left .orb-1 {
+            width: 100px; height: 100px;
+            background: radial-gradient(circle, rgba(251,146,60,0.22), transparent 70%);
+            bottom: 30%; left: -20px;
+        }
+        .panel-left .orb-2 {
+            width: 70px; height: 70px;
+            background: radial-gradient(circle, rgba(251,146,60,0.18), transparent 70%);
+            top: 20%; right: 10px;
+        }
+        .brand-logo {
+            width: 90px; height: 90px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            overflow: hidden;
+            padding: 6px;
+        }
+        .brand-logo img {
             width: 100%;
-            max-width: 420px;
-            text-align: center;
-            position: relative;
-            z-index: 10;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            height: 100%;
+            object-fit: contain;
         }
-
-        .logo-container {
-            margin-bottom: 32px;
-        }
-
-        .bank-sumut-logo {
-            font-size: 28px;
+        .brand-name {
+            font-size: 24px;
             font-weight: 800;
-            color: var(--primary-blue);
+            color: #fff;
             letter-spacing: -0.5px;
+            text-align: center;
         }
-
-        .app-name {
-            font-size: 14px;
-            color: #64748b;
-            font-weight: 500;
-            margin-top: 4px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-        }
-
-        .form-group {
-            text-align: left;
-            margin-bottom: 24px;
-        }
-
-        label {
-            display: block;
+        .brand-tagline {
             font-size: 13px;
+            color: rgba(255,255,255,0.65);
+            margin-top: 8px;
+            text-align: center;
+            line-height: 1.5;
+        }
+        .brand-divider {
+            width: 40px; height: 3px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 2px;
+            margin: 20px auto;
+        }
+        .feature-list {
+            list-style: none;
+            width: 100%;
+        }
+        .feature-list li {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: rgba(255,255,255,0.75);
+            font-size: 12.5px;
+            padding: 7px 0;
+        }
+        .feature-list li .icon {
+            width: 24px; height: 24px;
+            background: rgba(255,255,255,0.12);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px;
+            flex-shrink: 0;
+        }
+
+        /* ── Panel kanan: Form ── */
+        .panel-right {
+            flex: 1;
+            background: #fff;
+            padding: 48px 44px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .form-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+        .form-subtitle {
+            font-size: 13.5px;
+            color: #64748b;
+            margin-bottom: 28px;
+        }
+
+        /* Error */
+        .error-box {
+            background: #fff1f2;
+            border: 1.5px solid #fecdd3;
+            border-radius: 10px;
+            padding: 11px 14px;
+            margin-bottom: 20px;
+            color: #be123c;
+            font-size: 13px;
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        /* Fields */
+        .field { margin-bottom: 16px; }
+        .field label {
+            display: block;
+            font-size: 12.5px;
             font-weight: 600;
-            color: #475569;
+            color: #374151;
+            margin-bottom: 7px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .field input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            font-size: 14.5px;
+            font-family: 'Poppins', sans-serif;
+            background: #f9fafb;
+            color: #111827;
+            transition: all 0.18s;
+        }
+        .field input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+
+        /* Captcha */
+        .captcha-section { margin-bottom: 20px; }
+        .captcha-section > label {
+            display: block;
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
             margin-bottom: 8px;
         }
-
-        input {
-            width: 100%;
-            padding: 14px 16px;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.2s ease;
-            background: #f8fafc;
+        #captcha-wrapper {
+            background: #f9fafb;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px;
         }
-
-        input:focus {
-            outline: none;
-            border-color: var(--secondary-blue);
-            background: #fff;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        #captcha-wrapper img {
+            width: 100% !important;
+            height: auto !important;
+            border-radius: 7px;
+            display: block;
+            border: 1px solid #e5e7eb;
         }
-
-        .btn-login {
-            width: 100%;
-            padding: 16px;
-            background: var(--primary-blue);
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 10px 15px -3px rgba(30, 58, 138, 0.3);
+        .captcha-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 9px;
         }
-
-        .btn-login:hover {
-            background: var(--secondary-blue);
-            transform: translateY(-2px);
-            box-shadow: 0 20px 25px -5px rgba(30, 58, 138, 0.4);
-        }
-
-        .error-box {
-            background: #fef2f2;
-            border-left: 4px solid #ef4444;
-            padding: 12px;
-            margin-bottom: 24px;
+        #captcha-wrapper input[type="text"] {
+            flex: 1;
+            padding: 10px 12px;
+            border: 1.5px solid #e5e7eb;
             border-radius: 8px;
-            color: #991b1b;
-            font-size: 14px;
-            text-align: left;
+            font-size: 16px;
+            letter-spacing: 4px;
+            text-align: center;
+            font-weight: 700;
+            color: #1e40af;
+            background: #fff;
+            font-family: 'Montserrat', monospace;
+            transition: all 0.18s;
+        }
+        #captcha-wrapper input[type="text"]:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .btn-refresh {
+            width: 40px; height: 40px;
+            flex-shrink: 0;
+            border: 1.5px solid #e5e7eb;
+            background: #fff;
+            border-radius: 8px;
+            font-size: 18px;
+            color: #3b82f6;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .btn-refresh:hover { background: #eff6ff; border-color: #93c5fd; }
+        .captcha-hint {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-top: 7px;
+            text-align: center;
+        }
+        .captcha-err { color: #e11d48; font-size: 12px; margin-top: 5px; }
+
+        /* Submit */
+        .btn-submit {
+            width: 100%;
+            padding: 13px;
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            color: #fff;
+            border: none;
+            border-radius: 11px;
+            font-size: 15px;
+            font-weight: 700;
+            font-family: 'Poppins', sans-serif;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 6px 18px rgba(30,58,138,0.3);
+            letter-spacing: 0.2px;
+        }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 24px rgba(30,58,138,0.38);
         }
 
-        .footer-text {
-            margin-top: 32px;
-            font-size: 13px;
-            color: #94a3b8;
+        /* Footer */
+        .form-footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        /* Responsif untuk layar kecil */
+        @media (max-width: 680px) {
+            .panel-left { display: none; }
+            .panel-right { padding: 36px 28px; }
+            .wrapper { border-radius: 20px; }
         }
     </style>
 </head>
 <body>
-    <div class="circle c1"></div>
-    <div class="circle c2"></div>
-    
-    <div class="login-card">
-        <div class="logo-container">
-            <div class="bank-sumut-logo">Bank Sumut</div>
-            <div class="app-name">Kolektibilitas App</div>
+<div class="wrapper">
+
+    <!-- ── Panel Kiri ── -->
+    <div class="panel-left">
+        <!-- Bola oranye dekoratif -->
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+
+        <div class="brand-logo">
+            <img src="{% static 'kolek/img/banksumutlogo.png' %}" alt="Logo Bank Sumut">
         </div>
+        <div class="brand-name">Bank Sumut</div>
+        <div class="brand-divider"></div>
+        <div style="color:#fff; font-size:38px; font-weight:900; text-align:center; letter-spacing:2px; line-height:1;">SIMOLEK</div>
+        <div style="color:rgba(255,255,255,0.75); font-size:15px; font-weight:500; text-align:center; margin-top:12px; line-height:1.6; letter-spacing:0.2px;">Sistem Monitoring<br>Kolektibilitas</div>
+    </div>
+
+    <!-- ── Panel Kanan ── -->
+    <div class="panel-right">
+        <div class="form-title">Masuk ke Sistem</div>
+        <div class="form-subtitle">Masukkan kredensial akun Anda untuk melanjutkan.</div>
 
         {% if form.errors %}
-            <div class="error-box">
-                Username atau password salah. Silakan coba lagi.
-            </div>
+        <div class="error-box">
+            ⚠️ Username, Password, atau Kode Keamanan tidak sesuai.
+        </div>
         {% endif %}
 
-        <form method="post">
+        <form method="post" autocomplete="off">
             {% csrf_token %}
-            <div class="form-group">
+            {{ form.website_url }}
+
+            <div class="field">
                 <label>Username</label>
-                <input type="text" name="username" required placeholder="Masukkan username">
+                <input type="text" name="username" required placeholder="Masukkan username" autofocus>
             </div>
-            <div class="form-group">
+
+            <div class="field">
                 <label>Password</label>
                 <input type="password" name="password" required placeholder="Masukkan password">
             </div>
-            <button type="submit" class="btn-login">Masuk ke Aplikasi</button>
+
+            <div class="captcha-section">
+                <label>Kode Verifikasi</label>
+                <div id="captcha-wrapper">
+                    {{ form.captcha }}
+                    <div class="captcha-controls" id="captcha-controls-slot"></div>
+                </div>
+                {% if form.captcha.errors %}
+                <div class="captcha-err">⚠ Kode tidak sesuai, masukkan kode baru.</div>
+                {% endif %}
+                <div class="captcha-hint">Ketik karakter yang tampil pada gambar di atas</div>
+            </div>
+
+            <button type="submit" class="btn-submit">Masuk ke Aplikasi</button>
         </form>
 
-        <div class="footer-text">
-            &copy; 2026 PT Bank Sumut. All rights reserved.
-        </div>
+        <div class="form-footer">&copy; 2026 PT Bank Sumut. Hak cipta dilindungi.</div>
     </div>
+
+</div>
+
+<script>
+    // Pindahkan input captcha ke dalam kontrol row (sejajar tombol refresh)
+    const captchaInput = document.querySelector('#captcha-wrapper input[type="text"]');
+    const controlsSlot = document.getElementById('captcha-controls-slot');
+    if (captchaInput && controlsSlot) {
+        captchaInput.placeholder = 'Ketik kode…';
+        captchaInput.autocomplete = 'off';
+        captchaInput.style.flex = '1';
+
+        // Buat tombol refresh
+        const refreshBtn = document.createElement('button');
+        refreshBtn.type = 'button';
+        refreshBtn.className = 'btn-refresh';
+        refreshBtn.title = 'Ganti Kode';
+        refreshBtn.innerHTML = '↻';
+
+        controlsSlot.appendChild(captchaInput);
+        controlsSlot.appendChild(refreshBtn);
+
+        // Aksi tombol refresh
+        refreshBtn.addEventListener('click', function () {
+            fetch('/captcha/refresh/')
+                .then(r => r.json())
+                .then(data => {
+                    const img = document.querySelector('#captcha-wrapper img');
+                    const key = document.querySelector('[name="captcha_0"]');
+                    if (img) img.src = data.image_url;
+                    if (key) key.value = data.key;
+                    captchaInput.value = '';
+                    captchaInput.focus();
+                });
+        });
+    }
+</script>
 </body>
 </html>
