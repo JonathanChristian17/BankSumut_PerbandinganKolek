@@ -35,21 +35,21 @@
         <div class="header-title">
             <h2>
                 Konsolidasi
-                <span class="gradient-text-konvensional">per Kantor Cabang</span>
-                <span class="bank-badge">{{ bank_label }}</span>
+                <span style="background:linear-gradient(135deg,#059669,#047857);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">per Kantor Cabang</span>
+                {% if bank == 'syariah' %}<span class="bank-badge" style="background:#065f46;">{{ bank_label }}</span>{% else %}<span class="bank-badge" style="background:#1e3a8a;">{{ bank_label }}</span>{% endif %}
             </h2>
             <p class="subtitle">
                 {% if tanggal1_display and tanggal2_display %}
-                    Periode: <strong class="period-label">{{ tanggal1_display }}</strong>
+                    Periode: <strong style="color:#0f172a;">{{ tanggal1_display }}</strong>
                     <i class="bi bi-arrow-right mx-1 text-muted" style="font-size:11px;"></i>
-                    <strong class="period-label">{{ tanggal2_display }}</strong>
+                    <strong style="color:#0f172a;">{{ tanggal2_display }}</strong>
                 {% else %}
                     Pilih dua periode untuk menampilkan ringkasan per kantor cabang
                 {% endif %}
             </p>
         </div>
         <div class="header-actions">
-            <a href="{% url 'kolek:konvensional_pergerakan' %}" class="btn-action btn-outline">
+            <a href="{% if bank == 'syariah' %}{% url 'kolek:syariah_pergerakan' %}{% else %}{% url 'kolek:konvensional_pergerakan' %}{% endif %}" class="btn-action btn-outline">
                 <i class="bi bi-arrow-left"></i> Kembali
             </a>
             {% if rows %}
@@ -82,7 +82,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-group form-group-no-flex">
+                <div class="form-group" style="flex: 0 0 auto;">
                     <button type="submit" class="btn-action btn-submit">
                         <i class="bi bi-search"></i> Tampilkan
                     </button>
@@ -150,7 +150,7 @@
     <div class="table-card">
         <div class="table-card-header">
             <div style="display:flex; align-items:center; gap:10px;">
-                <div class="table-card-accent"></div>
+                <div class="table-card-accent" style="background:linear-gradient(135deg,#059669,#047857);"></div>
                 <div>
                     <div class="table-card-title">TABEL KONSOLIDASI PER KANTOR CABANG</div>
                     <div class="table-card-sub">Menampilkan <strong style="color:#1e293b;">{{ rows|length }}</strong> kantor cabang</div>
@@ -211,22 +211,22 @@
                         <td class="fw-bold" style="color:#2563eb;">{{ r.kode }}</td>
                         <td class="td-nama ps-3 fw-semibold">{{ r.nama }}</td>
 
-                        <td class="noa-val text-membaik bg-membaik">{% if r.membaik_noa %}{{ r.membaik_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
-                        <td class="baldi-val bg-membaik">{% if r.membaik_baldi %}{{ r.membaik_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="noa-val" style="color:#2D6A4F;background:#F0FDF4;">{% if r.membaik_noa %}{{ r.membaik_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="baldi-val" style="background:#F0FDF4;">{% if r.membaik_baldi %}{{ r.membaik_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
 
-                        <td class="noa-val text-tetap bg-tetap">{% if r.tetap_noa %}{{ r.tetap_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
-                        <td class="baldi-val bg-tetap">{% if r.tetap_baldi %}{{ r.tetap_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="noa-val" style="color:#4A4E69;background:#F8F9FA;">{% if r.tetap_noa %}{{ r.tetap_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="baldi-val" style="background:#F8F9FA;">{% if r.tetap_baldi %}{{ r.tetap_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
 
-                        <td class="noa-val text-memburuk bg-memburuk">{% if r.memburuk_noa %}{{ r.memburuk_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
-                        <td class="baldi-val bg-memburuk">{% if r.memburuk_baldi %}{{ r.memburuk_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="noa-val" style="color:#D97706;background:#FFFBEB;">{% if r.memburuk_noa %}{{ r.memburuk_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="baldi-val" style="background:#FFFBEB;">{% if r.memburuk_baldi %}{{ r.memburuk_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
 
-                        <td class="noa-val text-npl bg-npl">{% if r.jatuh_npl_noa %}{{ r.jatuh_npl_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
-                        <td class="baldi-val bg-npl">{% if r.jatuh_npl_baldi %}{{ r.jatuh_npl_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="noa-val" style="color:#991B1B;background:#FEF2F2;">{% if r.jatuh_npl_noa %}{{ r.jatuh_npl_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="baldi-val" style="background:#FEF2F2;">{% if r.jatuh_npl_baldi %}{{ r.jatuh_npl_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
 
-                        <td class="noa-val text-tutup bg-tutup">{% if r.tutup_noa %}{{ r.tutup_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="noa-val" style="color:#6B7280;background:#F3F4F6;">{% if r.tutup_noa %}{{ r.tutup_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
 
-                        <td class="noa-val text-baru bg-baru">{% if r.baru_noa %}{{ r.baru_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
-                        <td class="baldi-val bg-baru">{% if r.baru_baldi %}{{ r.baru_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="noa-val" style="color:#0284C7;background:#F0F9FF;">{% if r.baru_noa %}{{ r.baru_noa }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
+                        <td class="baldi-val" style="background:#F0F9FF;">{% if r.baru_baldi %}{{ r.baru_baldi|floatformat:0|intcomma }}{% else %}<span class="zero-val">-</span>{% endif %}</td>
 
                         <td class="noa-val fw-semibold" style="background:#EFF6FF;color:#1E3A8A;">{{ r.total_noa }}</td>
                         <td class="baldi-val fw-semibold" style="background:#EFF6FF;color:#1E3A8A;">{{ r.total_baldi|floatformat:0|intcomma }}</td>
@@ -281,7 +281,7 @@
     <div id="simple-loader"
         style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.82);backdrop-filter:blur(6px);z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
         <div
-            style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#3b82f6);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 8px 24px rgba(30,58,138,0.3);">
+            style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#065f46,#059669);display:flex;align-items:center;justify-content:center;margin-bottom:16px;box-shadow:0 8px 24px rgba(6,95,70,0.3);">
             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
                 stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
                 style="animation:ldr-spin 1.1s linear infinite;">
@@ -298,12 +298,12 @@
             style="background:#fff;border-radius:20px;padding:36px;width:450px;height:240px;box-sizing:border-box;box-shadow:0 32px 64px rgba(0,0,0,0.35);text-align:center;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;">
             <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#f1f5f9;">
                 <div id="loader-topbar"
-                    style="height:100%;background:linear-gradient(90deg,#3b82f6,#1e3a8a);width:0%;transition:width 0.5s ease;">
+                    style="height:100%;background:linear-gradient(90deg,#059669,#065f46);width:0%;transition:width 0.5s ease;">
                 </div>
             </div>
 
             <div
-                style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1e3a8a,#3b82f6);display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 8px 24px rgba(30,58,138,0.3);">
+                style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#065f46,#059669);display:flex;align-items:center;justify-content:center;margin:0 auto;box-shadow:0 8px 24px rgba(6,95,70,0.3);">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
                     stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
                     style="animation:ldr-spin 1.1s linear infinite;">
@@ -324,11 +324,11 @@
                 <div
                     style="background:#f1f5f9;border-radius:99px;height:10px;overflow:hidden;margin-bottom:8px;box-shadow:inset 0 1px 3px rgba(0,0,0,0.1);">
                     <div id="loader-bar"
-                        style="height:100%;border-radius:99px;background:linear-gradient(90deg,#3b82f6,#1e3a8a);width:0%;transition:width 0.5s ease;">
+                        style="height:100%;border-radius:99px;background:linear-gradient(90deg,#059669,#065f46);width:0%;transition:width 0.5s ease;">
                     </div>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div id="loader-pct" style="font-size:24px;font-weight:800;color:#1e3a8a;line-height:1;">0%
+                    <div id="loader-pct" style="font-size:24px;font-weight:800;color:#065f46;line-height:1;">0%
                     </div>
                     <div id="loader-sub" style="font-size:12px;color:#94a3b8;text-align:right;">Mohon tunggu
                         sebentar...</div>

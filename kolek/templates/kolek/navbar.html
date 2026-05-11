@@ -35,6 +35,10 @@
                    class="{% if request.resolver_match.url_name == 'konvensional_bandingkan' %}nav-item-active{% endif %}">
                     🔄 Bandingkan Periode
                 </a>
+                <a href="{% url 'kolek:konvensional_summary_cabang' %}"
+                   class="{% if request.resolver_match.url_name == 'konvensional_summary_cabang' %}nav-item-active{% endif %}">
+                    📋 Summary Cabang
+                </a>
             </div>
         </div>
 
@@ -60,6 +64,10 @@
                 <a href="{% url 'kolek:syariah_bandingkan' %}"
                    class="{% if request.resolver_match.url_name == 'syariah_bandingkan' %}nav-item-active{% endif %}">
                     🔄 Bandingkan Periode
+                </a>
+                <a href="{% url 'kolek:syariah_summary_cabang' %}"
+                   class="{% if request.resolver_match.url_name == 'syariah_summary_cabang' %}nav-item-active{% endif %}">
+                    📋 Summary Cabang
                 </a>
             </div>
         </div>

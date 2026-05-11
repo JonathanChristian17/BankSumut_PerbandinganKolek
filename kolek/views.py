@@ -331,6 +331,45 @@ def _proses_upload(request, ModelKelas, kolom_map, redirect_name, template_name,
                     messages.error(request, f'Kolom wajib tidak ditemukan: {col}')
                     return redirect(redirect_name)
 
+            # ── Validasi Kode Cabang ─────────────────────────────────────
+            if 'branchid' in df.columns:
+                valid_kc  = set(str(int(float(k))) for k in KantorCabang.objects.values_list('kode', flat=True)
+                                if k is not None)
+                valid_kcp = set(str(int(float(k))) for k in KantorCabangPembantu.objects.values_list('kode', flat=True)
+                                if k is not None)
+                all_valid_codes = valid_kc | valid_kcp
+
+                def _norm_code(v):
+                    try:
+                        return str(int(float(v)))
+                    except Exception:
+                        return str(v)
+
+                df['_kode_norm'] = df['branchid'].apply(_norm_code)
+                df_invalid = df[~df['_kode_norm'].isin(all_valid_codes)]
+
+                if not df_invalid.empty:
+                    invalid_summary = df_invalid.groupby('_kode_norm').apply(
+                        lambda g: {
+                            'kode': g['_kode_norm'].iloc[0],
+                            'jumlah': len(g),
+                            'contoh': g['cifnm'].iloc[0] if 'cifnm' in g.columns else '-',
+                        }
+                    ).tolist()
+
+                    ctx = {
+                        'hasil': {'berhasil': 0, 'gagal': len(df_invalid), 'errors': [], 'selesai': False},
+                        'invalid_branches': invalid_summary,
+                        'total_invalid': len(df_invalid),
+                        'total_data': len(df),
+                    }
+                    if extra_ctx:
+                        ctx.update(extra_ctx)
+                    return render(request, template_name, ctx)
+
+                df.drop(columns=['_kode_norm'], inplace=True)
+            # ── Selesai Validasi Kode Cabang ─────────────────────────────
+
             # --- OPTIMISASI: DELETE-THEN-INSERT (PostgreSQL) ---
             from django.db import connection, transaction
             
@@ -433,8 +472,8 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
             if d2 <= d1:
                 messages.error(request, "Tanggal 2 harus lebih baru dari Tanggal 1.")
                 return redirect(redirect_url)
-            if (d2 - d1).days > 31:
-                messages.error(request, "Jarak perbandingan maksimal adalah 1 bulan (31 hari).")
+            if (d2 - d1).days > 366:
+                messages.error(request, "Jarak perbandingan maksimal adalah 1 tahun (366 hari).")
                 return redirect(redirect_url)
         except ValueError:
             pass
@@ -453,9 +492,14 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
             qs1 = qs1.filter(branchid__in=kcp_kodes)
             qs2 = qs2.filter(branchid__in=kcp_kodes)
 
-        # OPTIMASI: iterator() chunking agar tidak muat semua ke RAM sekaligus
-        df1 = pd.DataFrame.from_records(qs1.iterator(chunk_size=5000))
-        df2 = pd.DataFrame.from_records(qs2.iterator(chunk_size=5000))
+        from django.db import connection
+        
+        # OPTIMASI: Bypass Django ORM dict hydration, read directly to Pandas via raw SQL
+        query1, params1 = qs1.query.sql_with_params()
+        df1 = pd.read_sql(str(query1), connection, params=params1)
+        
+        query2, params2 = qs2.query.sql_with_params()
+        df2 = pd.read_sql(str(query2), connection, params=params2)
 
         if df1.empty and df2.empty:
             hasil_banding = []
@@ -582,24 +626,27 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
             if filter_rating:
                 df = df[df['perubahan_label'] == filter_rating]
 
-            df['kolek_t1_disp']   = np.where(df['kolek_t1'].notna(), df['kolek_t1'].fillna(0).astype(int).astype(str), '-')
-            df['kolek_t2_disp']   = np.where(df['kolek_t2'].notna(), df['kolek_t2'].fillna(0).astype(int).astype(str), '-')
-            df['rating_t1_disp']  = df['kelompok_sandi_t1'].fillna('-').astype(str)
-            df['rating_t2_disp']  = df['kelompok_sandi_t2'].fillna('-').astype(str)
-            df['saldo_t1_disp']   = df['saldo_akhir_t1'].fillna('-')
-            df['saldo_t2_disp']   = df['saldo_akhir_t2'].fillna('-')
-            df['nilai_wajar_t1_disp'] = df['nilai_wajar_t1'].fillna('-')
-            df['nilai_wajar_t2_disp'] = df['nilai_wajar_t2'].fillna('-')
-            
-            df['ckpn_t2_disp']    = df['ckpn_t2'].fillna('-')
-            df['strtdt_t2_disp']  = df['strtdt_t2'].fillna('-')
-            df['duedt_t2_disp']   = df['duedt_t2'].fillna('-')
-            df['prodid_t2_disp']  = df['prodid_t2'].fillna('-')
-            df['prodnm_t2_disp']  = df['prodnm_t2'].fillna('-')
-            df['tunggakan_pokok_t2_disp'] = df['tunggakan_pokok_t2'].fillna('-')
-            df['tunggakan_bunga_t2_disp'] = df['tunggakan_bunga_t2'].fillna('-')
+            def _format_disp_columns(target_df):
+                tdf = target_df.copy()
+                tdf['kolek_t1_disp']   = np.where(tdf['kolek_t1'].notna(), tdf['kolek_t1'].fillna(0).astype(int).astype(str), '-')
+                tdf['kolek_t2_disp']   = np.where(tdf['kolek_t2'].notna(), tdf['kolek_t2'].fillna(0).astype(int).astype(str), '-')
+                tdf['rating_t1_disp']  = tdf['kelompok_sandi_t1'].fillna('-').astype(str)
+                tdf['rating_t2_disp']  = tdf['kelompok_sandi_t2'].fillna('-').astype(str)
+                tdf['saldo_t1_disp']   = tdf['saldo_akhir_t1'].fillna('-')
+                tdf['saldo_t2_disp']   = tdf['saldo_akhir_t2'].fillna('-')
+                tdf['nilai_wajar_t1_disp'] = tdf['nilai_wajar_t1'].fillna('-')
+                tdf['nilai_wajar_t2_disp'] = tdf['nilai_wajar_t2'].fillna('-')
+                
+                tdf['ckpn_t2_disp']    = tdf['ckpn_t2'].fillna('-')
+                tdf['strtdt_t2_disp']  = tdf['strtdt_t2'].fillna('-')
+                tdf['duedt_t2_disp']   = tdf['duedt_t2'].fillna('-')
+                tdf['prodid_t2_disp']  = tdf['prodid_t2'].fillna('-')
+                tdf['prodnm_t2_disp']  = tdf['prodnm_t2'].fillna('-')
+                tdf['tunggakan_pokok_t2_disp'] = tdf['tunggakan_pokok_t2'].fillna('-')
+                tdf['tunggakan_bunga_t2_disp'] = tdf['tunggakan_bunga_t2'].fillna('-')
 
-            df['hari_tunggakan_t2'] = df[['hr_tungg_pokok_t2', 'hr_tungg_margin_t2']].fillna(0).astype(int).max(axis=1)
+                tdf['hari_tunggakan_t2'] = tdf[['hr_tungg_pokok_t2', 'hr_tungg_margin_t2']].fillna(0).astype(int).max(axis=1)
+                return tdf
 
             # --- ECHARTS DATA PREPARATION ---
 
@@ -687,6 +734,7 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
 
 
             if request.GET.get('export') == 'excel':
+                df = _format_disp_columns(df)
                 is_syariah = extra_ctx and extra_ctx.get('bank') == 'syariah'
                 sandi_label = 'Kelompok Sandi' if is_syariah else 'Rating Kolek'
                 perubahan_label_text = 'Perubahan Sandi' if is_syariah else 'Perubahan Rating'
@@ -738,20 +786,47 @@ def _bandingkan(request, ModelKelas, template_name, extra_ctx=None):
                 df_export.to_csv(response, sep=';', index=False, encoding='utf-8-sig')
                 return response
 
-            hasil_banding = df[[
-                'accnbr', 'cifnm', 'branchid',
-                'rating_t1_disp', 'rating_t2_disp',
-                'kolek_t1_disp', 'kolek_t2_disp',
-                'saldo_t1_disp', 'saldo_t2_disp',
-                'nilai_wajar_t2_disp',
-                'ckpn_t2_disp', 'strtdt_t2_disp', 'duedt_t2_disp', 'prodid_t2_disp', 'prodnm_t2_disp', 'tunggakan_pokok_t2_disp', 'tunggakan_bunga_t2_disp',
-                'hari_tunggakan_t2',
-                'perubahan_label', 'kategori',
-            ]].to_dict('records')
+            total_records = len(df)
 
-            paginator = Paginator(hasil_banding, per_page)
-            page_num  = request.GET.get('page', 1)
-            page_obj  = paginator.get_page(page_num)
+            class DummyList:
+                def __init__(self, length):
+                    self.length = length
+                def __len__(self):
+                    return self.length
+                def __getitem__(self, key):
+                    if isinstance(key, slice):
+                        return [None] * len(range(*key.indices(self.length)))
+                    return None
+
+            paginator = Paginator(DummyList(total_records), per_page)
+            try:
+                page_num = int(request.GET.get('page', 1))
+            except ValueError:
+                page_num = 1
+                
+            page_obj = paginator.get_page(page_num)
+
+            if total_records > 0:
+                start_idx = page_obj.start_index() - 1
+                end_idx = page_obj.end_index()
+                df_page = df.iloc[start_idx:end_idx]
+                
+                df_page = _format_disp_columns(df_page)
+                
+                page_obj.object_list = df_page[[
+                    'accnbr', 'cifnm', 'branchid',
+                    'rating_t1_disp', 'rating_t2_disp',
+                    'kolek_t1_disp', 'kolek_t2_disp',
+                    'saldo_t1_disp', 'saldo_t2_disp',
+                    'nilai_wajar_t2_disp',
+                    'ckpn_t2_disp', 'strtdt_t2_disp', 'duedt_t2_disp', 'prodid_t2_disp', 'prodnm_t2_disp', 'tunggakan_pokok_t2_disp', 'tunggakan_bunga_t2_disp',
+                    'hari_tunggakan_t2',
+                    'perubahan_label', 'kategori',
+                ]].to_dict('records')
+                hasil_banding = page_obj.object_list
+            else:
+                page_obj.object_list = []
+                hasil_banding = []
 
     ctx = {
         'tanggal1'          : tanggal1,
@@ -987,4 +1062,263 @@ def bandingkan_syariah_view(request):
             'bank_label': 'Syariah',
             'redirect_url': 'kolek:syariah_bandingkan',
         },
+    )
+
+
+# ══════════════════════════════════════════════════════════════
+# HELPER: Summary per Cabang
+# ══════════════════════════════════════════════════════════════
+def _summary_per_cabang(ModelKelas, tanggal1, tanggal2):
+    import numpy as np
+    import math
+
+    COLS = ['accnbr', 'branchid', 'kolek', 'kelompok_sandi', 'saldo_akhir']
+    qs1 = ModelKelas.objects.filter(tanggal_upload=tanggal1).values(*COLS)
+    qs2 = ModelKelas.objects.filter(tanggal_upload=tanggal2).values(*COLS)
+
+    from django.db import connection
+    query1, params1 = qs1.query.sql_with_params()
+    df1 = pd.read_sql(str(query1), connection, params=params1)
+    query2, params2 = qs2.query.sql_with_params()
+    df2 = pd.read_sql(str(query2), connection, params=params2)
+
+    if df1.empty and df2.empty:
+        return [], {}
+
+    if not df1.empty:
+        df1 = df1.rename(columns={
+            'branchid': 'branchid_t1', 'kolek': 'kolek_t1',
+            'saldo_akhir': 'saldo_t1', 'kelompok_sandi': 'kelompok_sandi_t1'
+        })
+    if not df2.empty:
+        df2 = df2.rename(columns={
+            'branchid': 'branchid_t2', 'kolek': 'kolek_t2',
+            'saldo_akhir': 'saldo_t2', 'kelompok_sandi': 'kelompok_sandi_t2'
+        })
+
+    if df1.empty:
+        df = df2.copy()
+        for c in ['branchid_t1', 'kolek_t1', 'saldo_t1', 'kelompok_sandi_t1']:
+            df[c] = None
+    elif df2.empty:
+        df = df1.copy()
+        for c in ['branchid_t2', 'kolek_t2', 'saldo_t2', 'kelompok_sandi_t2']:
+            df[c] = None
+    else:
+        df = pd.merge(df1, df2, on='accnbr', how='outer')
+
+    # Pastikan semua kolom ada setelah merge
+    for col in ['branchid_t1', 'branchid_t2', 'kolek_t1', 'kolek_t2',
+                'saldo_t1', 'saldo_t2', 'kelompok_sandi_t1', 'kelompok_sandi_t2']:
+        if col not in df.columns:
+            df[col] = None
+
+    df['branchid'] = df['branchid_t2'].combine_first(df['branchid_t1'])
+    df['saldo_t2_fill'] = pd.to_numeric(df['saldo_t2'], errors='coerce').fillna(0)
+
+    has_t1 = df['kolek_t1'].notna()
+    has_t2 = df['kolek_t2'].notna()
+
+    ks1 = df['kelompok_sandi_t1'].fillna('').astype(str).str.strip().str.upper()
+    ks2 = df['kelompok_sandi_t2'].fillna('').astype(str).str.strip().str.upper()
+
+    hierarki_map = {'1': 1, '2A': 2, '2B': 3, '2C': 4, '3': 5, '4': 6, '5': 7}
+    val1 = ks1.map(hierarki_map)
+    val2 = ks2.map(hierarki_map)
+
+    df['kategori'] = 'baru'
+    df.loc[has_t1 & ~has_t2, 'kategori'] = 'tutup'
+
+    mask_both = has_t1 & has_t2
+    if mask_both.any():
+        conds = [
+            (val1 == val2) & val1.notna(),
+            val1 > val2,
+            (val1 < val2) & (val2 <= 4),
+            (val1 < val2) & (val2 >= 5),
+        ]
+        choices = ['tetap', 'membaik', 'memburuk', 'jatuh_npl']
+        df.loc[mask_both, 'kategori'] = np.select(
+            [c[mask_both] for c in conds], choices, default='tetap'
+        )
+
+    kc_qs = KantorCabang.objects.filter(is_aktif=True)
+    kcp_qs = KantorCabangPembantu.objects.select_related('cabang_induk').filter(is_aktif=True)
+    
+    branch_to_induk = {}
+    induk_map = {}
+    for kc in kc_qs:
+        try:
+            k = str(int(float(kc.kode)))
+            branch_to_induk[k] = k
+            induk_map[k] = kc.nama
+        except (ValueError, TypeError):
+            pass
+            
+    for kcp in kcp_qs:
+        try:
+            k = str(int(float(kcp.kode)))
+            ik = str(int(float(kcp.cabang_induk.kode)))
+            branch_to_induk[k] = ik
+        except (ValueError, TypeError, AttributeError):
+            pass
+
+    def get_induk(br_id):
+        try:
+            k = str(int(float(br_id))) if pd.notna(br_id) else '0'
+            return branch_to_induk.get(k, k)
+        except:
+            return str(br_id)
+            
+    df['induk_kode'] = df['branchid'].apply(get_induk)
+
+    def safe_sum(series):
+        v = float(pd.to_numeric(series, errors='coerce').fillna(0).sum())
+        return 0.0 if (math.isnan(v) or math.isinf(v)) else v
+
+    CATS = ['membaik', 'tetap', 'memburuk', 'jatuh_npl', 'tutup', 'baru']
+    result = {}
+
+    for br_key, g in df.groupby('induk_kode'):
+        if br_key not in induk_map:
+            final_key = '999'
+            final_nama = 'CABANG LAINNYA'
+        else:
+            final_key = br_key
+            final_nama = induk_map[br_key]
+            
+        if final_key not in result:
+            result[final_key] = {'kode': final_key, 'nama': final_nama, 'total_noa': 0, 'total_baldi': 0.0}
+            for cat in CATS:
+                result[final_key][f'{cat}_noa'] = 0
+                result[final_key][f'{cat}_baldi'] = 0.0
+                
+        entry = result[final_key]
+        for cat in CATS:
+            g_cat = g[g['kategori'] == cat]
+            noa = len(g_cat)
+            baldi = safe_sum(g_cat['saldo_t2_fill'])
+            entry[f'{cat}_noa'] += noa
+            entry[f'{cat}_baldi'] += baldi
+            entry['total_noa'] += noa
+            entry['total_baldi'] += baldi
+
+    rows = sorted(result.values(), key=lambda x: int(x['kode']) if x['kode'].isdigit() else 9999)
+    for i, row in enumerate(rows, start=1):
+        row['no'] = i
+
+    grand = {cat: {'noa': 0, 'baldi': 0.0} for cat in CATS}
+    grand['total'] = {'noa': 0, 'baldi': 0.0}
+    for row in rows:
+        for cat in CATS:
+            grand[cat]['noa'] += row[f'{cat}_noa']
+            grand[cat]['baldi'] += row[f'{cat}_baldi']
+        grand['total']['noa'] += row['total_noa']
+        grand['total']['baldi'] += row['total_baldi']
+
+    return rows, grand
+
+
+def _summary_cabang_view(request, ModelKelas, template_name, extra_ctx=None):
+    tanggal1 = request.GET.get('tanggal1', '')
+    tanggal2 = request.GET.get('tanggal2', '')
+    rows, grand = [], {}
+    tanggal1_display = tanggal2_display = error_msg = ''
+
+    BULAN_ID = {1:'Januari',2:'Februari',3:'Maret',4:'April',5:'Mei',6:'Juni',
+                7:'Juli',8:'Agustus',9:'September',10:'Oktober',11:'November',12:'Desember'}
+
+    tanggal_list = (
+        ModelKelas.objects.values_list('tanggal_upload', flat=True)
+        .distinct().order_by('tanggal_upload')
+    )
+
+    if tanggal1 and tanggal2:
+        try:
+            d1 = datetime.strptime(tanggal1, '%Y-%m-%d').date()
+            d2 = datetime.strptime(tanggal2, '%Y-%m-%d').date()
+            tanggal1_display = f"{d1.day} {BULAN_ID[d1.month]} {d1.year}"
+            tanggal2_display = f"{d2.day} {BULAN_ID[d2.month]} {d2.year}"
+            if d2 <= d1:
+                error_msg = 'Tanggal 2 harus lebih baru dari Tanggal 1.'
+            elif (d2 - d1).days > 366:
+                error_msg = 'Jarak perbandingan maksimal adalah 366 hari.'
+            else:
+                rows, grand = _summary_per_cabang(ModelKelas, tanggal1, tanggal2)
+        except ValueError:
+            error_msg = 'Format tanggal tidak valid.'
+
+    if request.GET.get('export') == 'csv' and rows:
+        import csv as _csv
+        from django.http import HttpResponse
+        bank_label = (extra_ctx or {}).get('bank_label', 'Bank')
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = (
+            f'attachment; filename="SummaryCabang_{bank_label}_{tanggal1}_vs_{tanggal2}.csv"'
+        )
+        tok = request.GET.get('export_token')
+        if tok:
+            response.set_cookie(f'export_done_{tok}', 'true', max_age=60)
+        w = _csv.writer(response, delimiter=';')
+        w.writerow(['NO','KODE','NAMA CABANG',
+                    'MEMBAIK NOA','MEMBAIK BAKI DEBET',
+                    'TETAP NOA','TETAP BAKI DEBET',
+                    'MEMBURUK NOA','MEMBURUK BAKI DEBET',
+                    'JATUH NPL NOA','JATUH NPL BAKI DEBET',
+                    'TUTUP NOA',
+                    'BARU NOA','BARU BAKI DEBET',
+                    'TOTAL NOA','TOTAL BAKI DEBET'])
+        for r in rows:
+            w.writerow([r['no'],r['kode'],r['nama'],
+                        r['membaik_noa'],int(r['membaik_baldi']),
+                        r['tetap_noa'],int(r['tetap_baldi']),
+                        r['memburuk_noa'],int(r['memburuk_baldi']),
+                        r['jatuh_npl_noa'],int(r['jatuh_npl_baldi']),
+                        r['tutup_noa'],
+                        r['baru_noa'],int(r['baru_baldi']),
+                        r['total_noa'],int(r['total_baldi'])])
+        if grand:
+            w.writerow(['','TOTAL','',
+                        grand['membaik']['noa'],int(grand['membaik']['baldi']),
+                        grand['tetap']['noa'],int(grand['tetap']['baldi']),
+                        grand['memburuk']['noa'],int(grand['memburuk']['baldi']),
+                        grand['jatuh_npl']['noa'],int(grand['jatuh_npl']['baldi']),
+                        grand['tutup']['noa'],
+                        grand['baru']['noa'],int(grand['baru']['baldi']),
+                        grand['total']['noa'],int(grand['total']['baldi'])])
+        return response
+
+    ctx = {
+        'tanggal1': tanggal1, 'tanggal2': tanggal2,
+        'tanggal1_display': tanggal1_display,
+        'tanggal2_display': tanggal2_display,
+        'tanggal_list': tanggal_list,
+        'rows': rows, 'grand': grand,
+        'error_msg': error_msg,
+    }
+    if extra_ctx:
+        ctx.update(extra_ctx)
+    return render(request, template_name, ctx)
+
+
+# ── Public views ──────────────────────────────────────────────
+@login_required
+@require_otp
+def summary_cabang_konvensional_view(request):
+    return _summary_cabang_view(
+        request,
+        ModelKelas=PergerakanKolekKonvensional,
+        template_name='kolek/konvensional/summary_cabang.html',
+        extra_ctx={'bank':'konvensional','bank_label':'Konvensional'},
+    )
+
+
+@login_required
+@require_otp
+def summary_cabang_syariah_view(request):
+    return _summary_cabang_view(
+        request,
+        ModelKelas=PergerakanKolekSyariah,
+        template_name='kolek/syariah/summary_cabang.html',
+        extra_ctx={'bank':'syariah','bank_label':'Syariah'},
     )

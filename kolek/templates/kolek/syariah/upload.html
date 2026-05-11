@@ -42,6 +42,38 @@
         {% endfor %}
     {% endif %}
 
+    {% if invalid_branches %}
+    <div style="background:#fff8ed;border:1.5px solid #f59e0b;border-radius:10px;padding:20px 24px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            <span style="font-size:22px;">⛔</span>
+            <div>
+                <div style="font-weight:700;font-size:15px;color:#92400e;">Upload Ditolak — Ditemukan Kode Cabang Tidak Valid</div>
+                <div style="font-size:13px;color:#78350f;margin-top:2px;">Dari <strong>{{ total_data }}</strong> baris data, terdapat <strong>{{ total_invalid }}</strong> baris dengan kode cabang yang tidak terdaftar di sistem. Upload dibatalkan dan tidak ada data yang tersimpan.</div>
+            </div>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+                <tr style="background:#fef3c7;">
+                    <th style="padding:8px 12px;text-align:left;color:#78350f;font-weight:700;">Kode Cabang Asing</th>
+                    <th style="padding:8px 12px;text-align:center;color:#78350f;font-weight:700;">Jumlah Baris Terdampak</th>
+                    <th style="padding:8px 12px;text-align:left;color:#78350f;font-weight:700;">Contoh Nasabah</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invalid_branches %}
+                <tr style="border-bottom:1px solid #fde68a;">
+                    <td style="padding:8px 12px;font-weight:700;color:#b45309;font-family:monospace;">{{ inv.kode }}</td>
+                    <td style="padding:8px 12px;text-align:center;color:#1e293b;">{{ inv.jumlah }} rekening</td>
+                    <td style="padding:8px 12px;color:#475569;">{{ inv.contoh }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div style="margin-top:12px;font-size:12px;color:#92400e;">💡 <strong>Solusi:</strong> Hubungi Administrator untuk mendaftarkan kode cabang tersebut ke Master Data KCP terlebih dahulu, lalu coba upload kembali.</div>
+    </div>
+    {% endif %}
+
+
     <div class="card">
         <form method="POST" enctype="multipart/form-data">
             {% csrf_token %}

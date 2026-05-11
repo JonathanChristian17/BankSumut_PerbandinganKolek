@@ -1,42 +1,57 @@
-/* ═══════════════════════════════════════════════════════
-   CSS GLOBAL — navbar.css
-   Style untuk Top Navbar dengan Dropdown Bank
-   ═══════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   navbar.css — SUMBER TUNGGAL untuk semua halaman
+   Tidak perlu di-override di file CSS lain manapun.
+   ═══════════════════════════════════════════════════════════════ */
 
-/* ── Navbar ── */
+/* ── Global Reset (ringan, tidak merusak halaman) ── */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+/* ── Navbar Utama ── */
 .top-navbar {
-    background-color: #1a2236;
-    height: 66px;
+    background-color: #222b40;
+    height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 36px;
+    padding: 0 40px;
     color: white;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.12), 0 1px 2px 0 rgba(0,0,0,0.08);
     position: sticky;
     top: 0;
     z-index: 100;
 }
 
+/* ── Nav Left ── */
 .nav-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 16px;
     flex-shrink: 0;
 }
 
+.nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 4px;
+}
+
 .nav-icon img {
-    height: 46px;
+    height: 48px;
     width: auto;
     object-fit: contain;
 }
 
 .nav-title {
-    font-size: 19px;
+    font-family: 'Poppins', system-ui, sans-serif;
+    font-size: 20px;
     font-weight: 700;
-    color: #fff;
-    letter-spacing: 0.3px;
+    color: #ffffff;
+    letter-spacing: 0.5px;
     white-space: nowrap;
+    margin: 0;
 }
 
 /* ── Nav Center (Dropdown area) ── */
@@ -64,7 +79,7 @@
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
-    font-family: 'Poppins', sans-serif;
+    font-family: 'Poppins', system-ui, sans-serif;
 }
 
 .nav-dropbtn:hover,
@@ -75,21 +90,20 @@
 }
 
 .nav-dropbtn.btn-active {
-    background: rgba(226, 108, 54, 0.22);
-    border-color: rgba(226, 108, 54, 0.55);
+    background: rgba(226,108,54,0.22);
+    border-color: rgba(226,108,54,0.55);
     color: #f59e61;
 }
 
 .nav-dropbtn.btn-active:hover,
 .nav-dropdown.active:hover .nav-dropbtn {
-    background: rgba(226, 108, 54, 0.30);
+    background: rgba(226,108,54,0.30);
 }
 
 .nav-dropbtn svg {
     transition: transform 0.2s ease;
 }
 
-/* Class 'show' akan ditambahkan via JavaScript pada click */
 .nav-dropdown.show .nav-dropbtn {
     background: rgba(255,255,255,0.13);
     border-color: rgba(255,255,255,0.22);
@@ -106,8 +120,8 @@
     position: absolute;
     top: calc(100% + 10px);
     left: 0;
-    background: #ffffff; /* Ubah background jadi putih agar teks lebih terbaca */
-    min-width: 220px;    /* Sedikit melebarkan dropdown */
+    background: #ffffff;
+    min-width: 220px;
     border-radius: 10px;
     box-shadow: 0 12px 35px rgba(0,0,0,0.25);
     border: 1px solid #e2e8f0;
@@ -121,7 +135,6 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Tampilkan dropdown saat class 'show' aktif */
 .nav-dropdown.show .nav-dropdown-content {
     display: block;
 }
@@ -129,41 +142,40 @@
 .nav-dropdown-content a {
     display: block;
     padding: 13px 20px;
-    color: #334155;      /* Warna font default hitam keabu-abuan terang (Slate-700) */
+    color: #334155;
     text-decoration: none;
+    font-family: 'Poppins', system-ui, sans-serif;
     font-size: 14px;
     font-weight: 500;
     transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    border-bottom: 1px solid #f1f5f9;  /* pemisah subtle */
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .nav-dropdown-content a:last-child {
     border-bottom: none;
 }
 
-/* Base effect hover */
 .nav-dropdown-content a:hover {
     background-color: #f8fafc;
     padding-left: 24px;
 }
 
-/* Specific Style: Konvensional (Active & Hover) */
-.nav-dropdown.active .nav-dropdown-content a.nav-item-active,
-.nav-dropdown:first-child .nav-dropdown-content a:hover {
-    color: #1e40af; /* Biru Navy untuk Konvensional */
+/* Konvensional hover/active */
+.nav-dropdown:first-child .nav-dropdown-content a:hover,
+.nav-dropdown.active .nav-dropdown-content a.nav-item-active {
+    color: #1e40af;
     background: #eff6ff;
     font-weight: 600;
 }
 
-/* Specific Style: Syariah (Active & Hover) */
+/* Syariah hover/active */
 .nav-dropdown:last-child .nav-dropdown-content a:hover,
 .nav-dropdown.active:last-child .nav-dropdown-content a.nav-item-active {
-    color: #047857; /* Hijau Emerald untuk Syariah */
+    color: #047857;
     background: #ecfdf5;
     font-weight: 600;
 }
 
-/* Active fallback fallback if no specific styling matches */
 .nav-dropdown-content a.nav-item-active {
     font-weight: 600;
 }
@@ -172,17 +184,18 @@
 .nav-right {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     flex-shrink: 0;
 }
 
 .realtime-clock {
     background: rgba(255,255,255,0.08);
-    padding: 6px 14px;
+    padding: 6px 16px;
     border-radius: 20px;
-    font-size: 12.5px;
+    font-family: 'Poppins', system-ui, sans-serif;
+    font-size: 13px;
     font-weight: 500;
-    color: #cbd5e1;
+    color: #e2e8f0;
     white-space: nowrap;
 }
 
@@ -194,8 +207,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    font-family: 'Poppins', system-ui, sans-serif;
     font-weight: 700;
-    font-size: 13px;
+    font-size: 14px;
     color: white;
     flex-shrink: 0;
+    border: 2px solid #222b40;
 }

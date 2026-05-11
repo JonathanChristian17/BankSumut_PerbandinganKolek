@@ -28,4 +28,8 @@ urlpatterns = [
     path('syariah/pergerakan/',       views.kolek_syariah_view,             name='syariah_pergerakan'),
     path('syariah/upload/',           views.upload_syariah_view,            name='syariah_upload'),
     path('syariah/bandingkan/',       views.bandingkan_syariah_view,        name='syariah_bandingkan'),
+
+    # ── Summary per Cabang ─────────────────────────────────────
+    path('konvensional/summary-cabang/', views.summary_cabang_konvensional_view, name='konvensional_summary_cabang'),
+    path('syariah/summary-cabang/',      views.summary_cabang_syariah_view,      name='syariah_summary_cabang'),
 ]
